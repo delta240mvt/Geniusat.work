@@ -1,0 +1,35 @@
+{
+  "id": "gaclight-sample-thread",
+  "projectId": "gaclight",
+  "title": "Sample Threads Carousel",
+  "body": "A sample carousel for checking local previews before publishing to Threads.",
+  "scheduledAt": "2026-04-27T09:00:00.000+02:00",
+  "status": "ready",
+  "source": {
+    "type": "manual",
+    "path": "input/content/sample-thread.json"
+  },
+  "assets": [
+    {
+      "id": "sample-cover",
+      "type": "image",
+      "localPath": "input/media/sample-cover.png",
+      "publicUrl": "https://example.com/gaclight/sample-cover.png",
+      "altText": "G@CLight sample carousel cover"
+    },
+    {
+      "id": "sample-detail",
+      "type": "image",
+      "localPath": "input/media/sample-detail.png",
+      "altText": "G@CLight sample carousel detail"
+    }
+  ],
+  "platforms": {
+    "threads": {
+      "postType": "carousel",
+      "replyControl": "everyone",
+      "topicTag": "BuildInPublic"
+    }
+  },
+  "history": []
+}

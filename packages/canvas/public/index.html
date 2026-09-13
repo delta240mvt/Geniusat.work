@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GENIUS@WORK — Studio treści</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/reels.css" />
+    <link rel="stylesheet" href="/publisher.css" />
+    <link rel="icon" href="/genius.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <div><div class="brand-mark">GENIUS@WORK</div><div class="brand-title">Studio treści</div></div>
+        <nav class="nav" aria-label="Główna nawigacja">
+          <button class="mode-tab active" type="button" data-app="content" data-workspace="reels" data-tab="studio">Rolki</button>
+          <button class="mode-tab" type="button" data-app="scale">Publikacje</button>
+          <button class="mode-tab" type="button" data-app="brains">Analiza komentarzy</button>
+        </nav>
+        <details class="workspace-tools">
+          <summary>Archiwum i narzędzia</summary>
+          <nav class="nav" aria-label="Dodatkowe narzędzia">
+            <button class="mode-tab" type="button" data-app="content" data-workspace="reels" data-tab="flow">Starsze rolki</button>
+            <button class="mode-tab" type="button" data-app="content" data-workspace="ai-studio" data-tab="flow">AI Studio</button>
+            <button class="mode-tab" type="button" data-app="scale" data-tab="old-calendar">Poprzedni kalendarz</button>
+          </nav>
+        </details>
+        <section class="sidebar-card run-sidebar" hidden>
+          <div class="panel-title">Projekty</div>
+          <div id="run-list" class="run-list"></div>
+        </section>
+        <button class="reel-text-button workspace-health" id="open-health" type="button">Konfiguracja i klucze</button>
+        <div class="footer-status">Praca lokalna · GENIUS@WORK</div>
+      </aside>
+      <main class="main">
+        <header class="topbar"><span id="active-kicker">Rolki</span><span id="active-title" class="title-line">Studio rolek</span></header>
+        <section class="content">
+          <div class="app-metrics" hidden><span id="metric-runs"></span><span id="metric-nodes"></span><span id="metric-prompts"></span><span id="metric-assets"></span></div>
+          <nav id="sub-tabs" class="tabs" aria-label="Widoki aplikacji"></nav>
+          <div id="tab-content" class="tab-content"></div>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

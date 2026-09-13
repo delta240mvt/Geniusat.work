@@ -1,0 +1,19 @@
+{
+  "name": "@genius/scale",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "genius-scale": "./bin/genius-scale.mjs"
+  },
+  "scripts": {
+    "dev": "tsx src/cli/index.ts",
+    "content:prepare": "tsx src/cli/index.ts prepare",
+    "calendar": "tsx src/cli/index.ts calendar",
+    "dry-run": "tsx src/cli/index.ts dry-run",
+    "publish": "tsx src/cli/index.ts publish",
+    "check:threads": "tsx src/cli/index.ts check:threads",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

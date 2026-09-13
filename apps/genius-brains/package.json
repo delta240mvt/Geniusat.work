@@ -1,0 +1,16 @@
+{
+  "name": "@genius/brains",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "genius-brains": "./src/cli/index.ts"
+  },
+  "scripts": {
+    "dev": "tsx src/cli/index.ts",
+    "check:youtube": "tsx src/cli/index.ts check:youtube",
+    "scrape": "tsx src/cli/index.ts scrape",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

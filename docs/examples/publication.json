@@ -1,0 +1,14 @@
+{
+  "title": "Tytuł publikacji",
+  "caption": "Treść posta. #geniusatwork",
+  "format": "reel",
+  "assetIds": [],
+  "accountIds": [],
+  "scheduledAt": null,
+  "options": {
+    "youtubePrivacy": "private",
+    "madeForKids": false,
+    "tiktokMode": "inbox",
+    "tiktokConsent": false
+  }
+}

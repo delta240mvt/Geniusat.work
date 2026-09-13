@@ -1,0 +1,24 @@
+{
+  "source": {
+    "type": "channel",
+    "channelUrl": "https://www.youtube.com/@openai"
+  },
+  "selection": {
+    "channelCandidateLimit": 50,
+    "channelSelectedVideosLimit": 5,
+    "topCommentsLimit": 100,
+    "commentFetchLimit": 200,
+    "videoSort": "viewCount",
+    "excludeShorts": true,
+    "excludeLive": true
+  },
+  "ranking": {
+    "likesWeight": 1,
+    "repliesWeight": 3
+  },
+  "output": {
+    "writeRawJson": true,
+    "writeMarkdown": true,
+    "writeFlow": true
+  }
+}

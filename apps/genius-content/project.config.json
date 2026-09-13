@@ -1,0 +1,59 @@
+{
+  "videoIntelligence": {
+    "enabled": true,
+    "locationId": "us-east1",
+    "features": [
+      "LABEL_DETECTION",
+      "SHOT_CHANGE_DETECTION",
+      "TEXT_DETECTION",
+      "SPEECH_TRANSCRIPTION",
+      "OBJECT_TRACKING",
+      "FACE_DETECTION"
+    ],
+    "speechTranscriptionConfig": {
+      "languageCode": "pl-PL",
+      "enableAutomaticPunctuation": true,
+      "filterProfanity": false,
+      "maxAlternatives": 1
+    },
+    "faceDetectionConfig": {
+      "includeBoundingBoxes": true,
+      "includeAttributes": true
+    }
+  },
+  "firecrawl": {
+    "enabled": true,
+    "maxSources": 3
+  },
+  "speechTranscription": {
+    "enabled": true
+  },
+  "textDetection": {
+    "enabled": true
+  },
+  "storyboard": {
+    "maxCaptionChars": 120,
+    "maxHookChars": 48,
+    "maxBullets": 3,
+    "shorteningMode": "aggressive"
+  },
+  "layout": {
+    "preset": "split-50-50",
+    "topRatio": 0.5
+  },
+  "style": {
+    "animation": "bold-kinetic",
+    "typography": "modern-editorial"
+  },
+  "fallbacks": {
+    "continueWithoutFirecrawl": true,
+    "allowMinimalStoryboardOnPartialAnnotations": true,
+    "stopRenderOnGoogleFailure": true
+  },
+  "video": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "codec": "h264"
+  }
+}

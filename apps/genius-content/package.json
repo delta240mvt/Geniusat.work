@@ -1,0 +1,47 @@
+{
+  "name": "@genius/content",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "pipeline": "tsx scripts/pipeline.ts",
+    "pipeline:prepare": "tsx scripts/pipeline.ts --prepare",
+    "pipeline:refine": "tsx scripts/pipeline.ts --prepare",
+    "pipeline:smoke": "vitest run tests/pipeline.test.ts tests/reels.test.ts tests/e2e-smoke.test.ts",
+    "reels": "tsx scripts/reels.ts",
+    "dev": "npm run studio",
+    "studio": "npm run dev --workspace @genius/canvas",
+    "build": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "doctor": "tsx scripts/doctor.ts",
+    "ai-studio": "tsx src/ai-studio/cli.ts",
+    "transcript": "tsx scripts/run-transcript-stage.ts",
+    "transcript:220426": "tsx scripts/run-transcript-stage.ts input/220426.mp4",
+    "render:final:hq": "tsx scripts/reels.ts --id delta-modele-ai"
+  },
+  "dependencies": {
+    "@google/genai": "^1.50.1",
+    "@mendable/firecrawl-js": "^4.18.3",
+    "dotenv": "^16.6.1",
+    "esbuild": "0.25.0",
+    "google-auth-library": "^10.4.1",
+    "gsap": "3.13.0",
+    "hyperframes": "0.8.36",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^24.9.1",
+    "jsdom": "^27.0.1",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.4"
+  },
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

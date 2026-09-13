@@ -1,0 +1,49 @@
+{
+  "name": "gaclight-video-pipeline",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "genius": "node scripts/genius.mjs",
+    "desktop:install": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/Install-DesktopShortcut.ps1",
+    "dev": "npm run canvas",
+    "reels": "npm run reels --workspace @genius/content --",
+    "reels:seed": "npm run reels --workspace @genius/content -- --seed",
+    "workspace:install": "npm install --workspaces --include-workspace-root",
+    "workspace:build": "npm run build --workspaces --if-present",
+    "workspace:typecheck": "npm run build --workspaces --if-present && npm run typecheck --workspaces --if-present",
+    "workspace:test": "npm run test --workspaces --if-present",
+    "workspace:lint": "npm run lint --workspaces --if-present",
+    "studio": "npm run canvas",
+    "build": "npm run build --workspace @genius/content",
+    "test": "npm run test --workspace @genius/content",
+    "canvas": "npm run dev --workspace @genius/canvas",
+    "doctor": "npm run doctor --workspace @genius/content",
+    "pipeline": "npm run pipeline --workspace @genius/content --",
+    "pipeline:prepare": "npm run pipeline:prepare --workspace @genius/content",
+    "pipeline:refine": "npm run pipeline:refine --workspace @genius/content",
+    "pipeline:smoke": "npm run pipeline:smoke --workspace @genius/content",
+    "render:final:hq": "npm run render:final:hq --workspace @genius/content",
+    "genius:content": "npm run dev --workspace @genius/content",
+    "genius:brains": "npm run dev --workspace @genius/brains",
+    "genius:scale": "npm run dev --workspace @genius/scale --",
+    "canvas:shared": "npm run build --workspace @genius/canvas"
+  },
+  "dependencies": {
+    "@mendable/firecrawl-js": "^4.18.3",
+    "dotenv": "^16.6.1",
+    "google-auth-library": "^10.4.1",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^24.9.1",
+    "jsdom": "^27.0.1",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.4"
+  }
+}
