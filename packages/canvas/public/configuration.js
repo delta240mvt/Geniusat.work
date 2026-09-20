@@ -9,7 +9,7 @@ export async function showConfiguration() {
   dialog.querySelector('button').onclick = () => dialog.close();
   dialog.onclose = () => {
     dialog.remove();
-    document.querySelector('#open-health')?.focus();
+    document.querySelector('#nav-settings-local')?.focus();
   };
   try {
     const response = await fetch('/api/health');

@@ -29,6 +29,6 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/server.ts",
-    "test": "node --import tsx --test src/index.test.ts src/reels-ui.test.ts src/publisher/*.test.ts"
+    "test": "node --import tsx --test src/index.test.ts src/navigation-ui.test.ts src/reels-ui.test.ts src/publisher/*.test.ts"
   }
 }

@@ -609,7 +609,7 @@ async function renderComposioSettings(target) {
 }
 
 function accountsMarkup() {
-  return `<section id="composio-settings" class="pub-composio-panel"></section><div class="pub-section-heading"><div><h2>Połączenia natywne</h2><p>Istniejące połączenia platform pozostają dostępne jako tryb zgodności.</p></div></div><div class="pub-account-grid">${Object.entries(
+  return `<section id="composio-settings" class="pub-composio-panel"></section><div class="pub-section-heading"><div><h2>Połączenia natywne</h2><p>Istniejące połączenia platform pozostają dostępne jako tryb zgodności.</p></div></div><div class="pub-account-grid" id="pub-native-accounts">${Object.entries(
     names,
   )
     .map(([p, name]) => {
@@ -618,7 +618,7 @@ function accountsMarkup() {
     })
     .join(
       "",
-    )}</div><div class="pub-settings-extra"><section><span class="pub-eyebrow">PUBLICZNE PLIKI</span><h3>Hosting mediów</h3><p>Instagram i Threads pobierają materiały z internetu. Cloudflare R2 udostępnia wybrane pliki. Możesz użyć istniejącej sesji Wrangler bez wklejania kluczy, a także wysłać plik weryfikacji TikToka.</p><button class="btn" id="pub-hosting">${data.hosting.configured ? "✓ Hosting skonfigurowany · Edytuj" : "Skonfiguruj hosting"}</button></section><section><span class="pub-eyebrow">NA TWOIM KOMPUTERZE</span><h3>Studio i terminal</h3><p>Ikona GENIUS@WORK uruchamia studio i scheduler. AI może sterować publikacjami przez <code>npm.cmd run genius -- help</code>.</p><button class="btn" id="pub-local-health">Sprawdź lokalne narzędzia</button></section></div><p class="pub-setup-note">Dostęp do publicznych publikacji zależy od uprawnień i weryfikacji aplikacji przez platformę. TikTok nie akceptuje Direct Post dla narzędzi przeznaczonych wyłącznie do własnych kont; tryb „Dokończ w TikToku” wymaga ostatniego kroku w jego aplikacji. Nowe, niezweryfikowane projekty YouTube publikują prywatnie.</p>`;
+    )}</div><div class="pub-settings-extra" id="pub-settings-extra"><section><span class="pub-eyebrow">PUBLICZNE PLIKI</span><h3>Hosting mediów</h3><p>Instagram i Threads pobierają materiały z internetu. Cloudflare R2 udostępnia wybrane pliki. Możesz użyć istniejącej sesji Wrangler bez wklejania kluczy, a także wysłać plik weryfikacji TikToka.</p><button class="btn" id="pub-hosting">${data.hosting.configured ? "✓ Hosting skonfigurowany · Edytuj" : "Skonfiguruj hosting"}</button></section><section><span class="pub-eyebrow">NA TWOIM KOMPUTERZE</span><h3>Studio i terminal</h3><p>Ikona GENIUS@WORK uruchamia studio i scheduler. AI może sterować publikacjami przez <code>npm.cmd run genius -- help</code>.</p><button class="btn" id="pub-local-health">Sprawdź lokalne narzędzia</button></section></div><p class="pub-setup-note">Dostęp do publicznych publikacji zależy od uprawnień i weryfikacji aplikacji przez platformę. TikTok nie akceptuje Direct Post dla narzędzi przeznaczonych wyłącznie do własnych kont; tryb „Dokończ w TikToku” wymaga ostatniego kroku w jego aplikacji. Nowe, niezweryfikowane projekty YouTube publikują prywatnie.</p>`;
 }
 
 async function uploadFiles(files) {

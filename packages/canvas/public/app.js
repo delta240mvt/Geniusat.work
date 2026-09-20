@@ -1,7 +1,8 @@
 import {mountReelStudio, unmountReelStudio} from './reels.js';
 import {showConfiguration} from './configuration.js';
-import {mountPublisher, unmountPublisher, openStudioPublication, showPublisherAccounts} from './publisher.js';
-const appTabs = Array.from(document.querySelectorAll('.mode-tab'));
+import {mountPublisher, unmountPublisher, openStudioPublication} from './publisher.js';
+import {getNavigationState, isNavigationItemActive, navigationSections} from './navigation.js';
+const primaryNav = document.getElementById('primary-nav');
 const runList = document.getElementById('run-list');
 const activeKicker = document.getElementById('active-kicker');
 const activeTitle = document.getElementById('active-title');
@@ -51,6 +52,9 @@ const state = {
   activeApp: 'content',
   activeSubTab: 'studio',
   activeContentWorkspace: 'reels',
+  openNavSection: 'content',
+  activeNavigationItemId: 'content-studio',
+  pendingNavigationAnchor: null,
   selectedRunId: {
     brains: null,
     contentAiStudio: null,
@@ -77,6 +81,64 @@ const createElement = (tagName, className, text) => {
     element.textContent = text;
   }
   return element;
+};
+
+const getNavigationItem = (itemId) =>
+  navigationSections.flatMap((section) => section.items).find((item) => item.id === itemId) || null;
+
+const navigateToItem = (item) => {
+  const section = navigationSections.find((candidate) => candidate.items.some((child) => child.id === item.id));
+  state.activeNavigationItemId = item.id;
+  state.openNavSection = section?.id || state.openNavSection;
+  if (item.action === 'health') {
+    showConfiguration();
+    renderPrimaryNavigation();
+    return;
+  }
+  state.activeApp = item.app;
+  if (item.workspace) state.activeContentWorkspace = item.workspace;
+  state.activeSubTab = item.tab || appConfig[item.app].tabs[0][0];
+  state.pendingNavigationAnchor = item.anchor || null;
+  render();
+};
+
+const renderPrimaryNavigation = () => {
+  const fallbackState = getNavigationState(state);
+  const activeItemId = state.activeNavigationItemId || fallbackState.activeItem;
+  const openSection = state.openNavSection || fallbackState.openSection;
+  primaryNav.replaceChildren();
+
+  navigationSections.forEach((section, index) => {
+    const group = createElement('section', `nav-group${openSection === section.id ? ' open' : ''}${openSection === section.id ? ' current' : ''}`);
+    const heading = createElement('button', 'nav-group-heading');
+    heading.type = 'button';
+    heading.setAttribute('aria-expanded', String(openSection === section.id));
+    heading.id = `nav-${section.id}`;
+    heading.append(
+      createElement('span', 'nav-group-icon', section.icon),
+      createElement('span', 'nav-group-copy', section.label),
+      createElement('span', 'nav-group-eyebrow', section.eyebrow),
+      createElement('span', 'nav-chevron', openSection === section.id ? '⌃' : '⌄'),
+    );
+    heading.addEventListener('click', () => navigateToItem(section.items[0]));
+    group.appendChild(heading);
+
+    const itemList = createElement('div', 'nav-submenu');
+    itemList.id = `nav-${section.id}-items`;
+    itemList.setAttribute('aria-label', `${section.label} — widoki`);
+    section.items.forEach((item) => {
+      const button = createElement('button', `nav-subitem${isNavigationItemActive(item, {activeItem: activeItemId}) ? ' active' : ''}`);
+      button.type = 'button';
+      button.id = `nav-${item.id}`;
+      button.setAttribute('aria-current', isNavigationItemActive(item, {activeItem: activeItemId}) ? 'page' : 'false');
+      button.append(createElement('span', 'nav-subitem-dot'), createElement('span', null, item.label));
+      button.addEventListener('click', () => navigateToItem(item));
+      itemList.appendChild(button);
+    });
+    group.appendChild(itemList);
+    primaryNav.appendChild(group);
+    if (index < navigationSections.length - 1) primaryNav.appendChild(createElement('div', 'nav-divider'));
+  });
 };
 
 const formatDateTime = (value, timezone) => {
@@ -1248,7 +1310,18 @@ const renderActiveTabContent = () => {
   if (state.activeApp === 'scale' && state.activeSubTab === 'old-calendar') {
     renderScaleCalendar();
   } else if (state.activeApp === 'scale') {
-    mountPublisher(tabContent, state.activeSubTab === 'accounts' ? 'accounts' : undefined);
+    const publisherView = {
+      calendar: 'calendar',
+      runs: 'list',
+      assets: 'library',
+      accounts: 'accounts',
+    }[state.activeSubTab] || 'calendar';
+    const anchor = state.pendingNavigationAnchor;
+    state.pendingNavigationAnchor = null;
+    void mountPublisher(tabContent, publisherView).then(() => {
+      if (!anchor) return;
+      requestAnimationFrame(() => document.getElementById(anchor)?.scrollIntoView({behavior: 'smooth', block: 'start'}));
+    });
   } else if (state.activeApp === 'content' && state.activeSubTab === 'studio') {
     mountReelStudio(tabContent);
   } else if (state.activeApp === 'content' && state.activeSubTab === 'flow') {
@@ -1275,28 +1348,20 @@ const renderActiveTabContent = () => {
 };
 
 const render = () => {
+  renderPrimaryNavigation();
   renderSubTabs();
   const inStudio = state.activeApp === 'content' && state.activeSubTab === 'studio';
   document.body.classList.toggle('motion-workspace', inStudio);
   document.body.classList.toggle('publisher-workspace', state.activeApp === 'scale');
   document.querySelector('.run-sidebar').hidden = inStudio || state.activeApp === 'scale';
-  subTabs.hidden = inStudio || state.activeApp === 'scale';
+  subTabs.hidden = true;
   const config = appConfig[state.activeApp];
-  activeKicker.textContent =
-    state.activeApp === 'brains'
-      ? 'Genius@Brains'
-      : state.activeApp === 'content'
-        ? `Genius@Content / ${getContentWorkspaceLabel()}`
-        : 'Genius@Scale';
-  activeTitle.textContent = state.activeApp === 'content' ? (state.activeSubTab==='studio'?'Studio rolek':`${getContentWorkspaceLabel()} / projekty`) : config.title;
+  const fallbackNavigationState = getNavigationState(state);
+  const activeNavigationItem = getNavigationItem(state.activeNavigationItemId) || getNavigationItem(fallbackNavigationState.activeItem);
+  const activeNavigationSection = navigationSections.find((section) => section.id === state.openNavSection);
+  activeKicker.textContent = activeNavigationSection?.label || config.title;
+  activeTitle.textContent = activeNavigationItem?.label || config.title;
 
-  appTabs.forEach((tab) => {
-    const active = tab.dataset.app === state.activeApp && (!tab.dataset.workspace || tab.dataset.workspace === state.activeContentWorkspace) && (!tab.dataset.tab || (tab.dataset.tab === 'studio') === inStudio);
-    tab.classList.toggle('active', active);
-    if (active) tab.setAttribute('aria-current', 'page'); else tab.removeAttribute('aria-current');
-  });
-
-  renderSubTabs();
   renderRunList();
   renderMetrics();
   renderActiveTabContent();
@@ -1329,19 +1394,9 @@ const loadData = async () => {
   render();
 };
 
-appTabs.forEach((tab) => {
-  tab.addEventListener('click', () => {
-    state.activeApp = tab.dataset.app;
-    if (tab.dataset.workspace) state.activeContentWorkspace = tab.dataset.workspace;
-    state.activeSubTab = tab.dataset.tab || appConfig[state.activeApp].tabs[0][0];
-    render();
-  });
-});
-
-document.querySelector('#open-health').onclick = showPublisherAccounts;
 document.addEventListener('genius:navigate-publisher', event => {
   if (event.detail?.path) openStudioPublication(event.detail);
-  state.activeApp = 'scale'; state.activeSubTab = event.detail?.view || 'calendar';
+  state.activeApp = 'scale'; state.activeSubTab = event.detail?.view || 'calendar'; state.activeNavigationItemId = 'scale-calendar';
   render();
 });
 
