@@ -19,6 +19,7 @@ import { configureR2, wranglerStatus, uploadWithWrangler } from "./r2.js";
 import { reelCatalog } from "../reels.js";
 import { readPreviewAssets } from "../files.js";
 import type { CanvasConfig } from "../types.js";
+import { ComposioClient } from "./composio.js";
 
 const json = (response: ServerResponse, status: number, body: unknown) => {
   response.writeHead(status, {
@@ -47,6 +48,12 @@ export function publisherHttp(
 ) {
   const oauth = new OAuth(publisher),
     store = publisher.store;
+  const composioClient = () => {
+    const apiKey = process.env.COMPOSIO_API_KEY?.trim();
+    if (!apiKey) throw new Error("Brak COMPOSIO_API_KEY w środowisku procesu aplikacji.");
+    const userId = process.env.COMPOSIO_USER_ID?.trim() || `genius-${createHash("sha256").update(path.resolve(config.workspaceRoot).toLowerCase()).digest("hex").slice(0, 16)}`;
+    return new ComposioClient({apiKey, userId, baseUrl: process.env.COMPOSIO_BASE_URL});
+  };
   // Attach a rejection handler immediately; requests report a damaged store without resetting it.
   void publisher.ready.catch(() => {});
   return {
@@ -104,6 +111,28 @@ export function publisherHttp(
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             serverTime: new Date().toISOString(),
           });
+        } else if (method === "GET" && route === "composio/capabilities") {
+          if (!process.env.COMPOSIO_API_KEY?.trim()) {
+            json(response, 200, {configured: false, capabilities: [], error: "Ustaw COMPOSIO_API_KEY w środowisku aplikacji."});
+          } else {
+            json(response, 200, {configured: true, capabilities: await composioClient().listPublishingCapabilities()});
+          }
+        } else if (method === "GET" && route === "composio/connections") {
+          if (!process.env.COMPOSIO_API_KEY?.trim()) json(response, 200, {configured: false, connections: []});
+          else json(response, 200, {configured: true, connections: await composioClient().listConnections()});
+        } else if (method === "POST" && route === "composio/connect") {
+          const input = z.object({
+            authConfigId: z.string().min(1).max(200),
+            alias: z.string().trim().min(1).max(100).optional(),
+          }).strict().parse(await body(request));
+          json(response, 200, await composioClient().createConnectLink(input));
+        } else if (method === "POST" && route === "composio/execute") {
+          const input = z.object({
+            actionSlug: z.string().regex(/^[A-Z0-9_]+$/),
+            connectedAccountId: z.string().min(1).max(200),
+            arguments: z.record(z.string(), z.unknown()).default({}),
+          }).strict().parse(await body(request));
+          json(response, 200, await composioClient().execute(input.actionSlug, input.connectedAccountId, input.arguments));
         } else if (method === "GET" && route === "library") {
           const [reels, library] = await Promise.all([
             reelCatalog(config),

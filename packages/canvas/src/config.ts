@@ -22,6 +22,9 @@ export const createCanvasConfig = (input: CanvasConfigInput = {}): CanvasConfig 
   const scaleCalendarPath = path.resolve(
     input.scaleCalendarPath ?? path.join(workspaceRoot, 'apps', 'genius-scale', 'output', 'calendar.json'),
   );
+  const geniusBrainsDataRoot = path.resolve(
+    input.geniusBrainsDataRoot ?? path.join(workspaceRoot, 'apps', 'genius-brains', 'output', 'viral'),
+  );
 
   return {
     workspaceRoot,
@@ -30,6 +33,7 @@ export const createCanvasConfig = (input: CanvasConfigInput = {}): CanvasConfig 
     analysisRoot,
     videoRoot,
     scaleCalendarPath,
+    geniusBrainsDataRoot,
     port: input.port ?? DEFAULT_PORT,
   };
 };

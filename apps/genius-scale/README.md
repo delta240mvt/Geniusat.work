@@ -2,6 +2,29 @@
 
 Genius@Scale prepares and checks project content before publishing it to social platforms.
 
+## Composio connections and publishing
+
+Composio is the primary connection path for supported publishing actions. The
+catalogue is discovered at runtime and filtered to social/content publishing
+capabilities; unrelated toolkits are not shown. Keep `COMPOSIO_API_KEY` and
+optionally `COMPOSIO_USER_ID` in the local process environment.
+
+```bash
+npm run genius:scale -- composio:capabilities
+npm run genius:scale -- composio:connections
+npm run genius:scale -- composio:connect --auth-config-id <id> --alias main
+```
+
+Publish a prepared item through an explicitly selected discovered action and
+connection:
+
+```bash
+npm run publish --workspace @genius/scale -- --item <id> --project-file input/projects/sample-project.json --content-file input/content/sample-thread.json --provider composio --action-slug <ACTION_SLUG> --connection-id <ca_...>
+```
+
+The adapter validates the item status and required action inputs, stores a
+redacted run artifact, and never falls back silently to a native API.
+
 ## Sample Inputs
 
 - Project config: `apps/genius-scale/input/projects/sample-project.json`

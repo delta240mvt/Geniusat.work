@@ -23,9 +23,14 @@ import { filterChannelVideos, type FilterableVideo } from "../youtube/filters.js
 import { resolveChannelLookup } from "../youtube/list-channel-videos.js";
 import { resolveChannel } from "../youtube/resolve-channel.js";
 import { extractVideoId } from "../youtube/resolve-video.js";
+import { runViralCommand } from "../viral/cli.js";
 
 const HELP_TEXT = [
   "Usage:",
+  "  genius-brains crawl --config <path>",
+  "  genius-brains analyze --run-id <id> [--codex-output <path>]",
+  "  genius-brains report --run-id <id>",
+  "  genius-brains list-runs",
   "  genius-brains check:youtube [--api-key <key>]",
   "  genius-brains scrape --job-file <path> [--api-key <key>]",
 ].join("\n");
@@ -34,6 +39,11 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<st
   const [command, ...rest] = argv;
 
   switch (command) {
+    case "crawl":
+    case "analyze":
+    case "report":
+    case "list-runs":
+      return runViralCommand(command, rest);
     case "check:youtube":
       return runYouTubeCheck(rest);
     case "scrape":

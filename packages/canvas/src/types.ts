@@ -5,6 +5,7 @@ export interface CanvasConfigInput {
   analysisRoot?: string;
   videoRoot?: string;
   scaleCalendarPath?: string;
+  geniusBrainsDataRoot?: string;
   port?: number;
 }
 
@@ -15,7 +16,42 @@ export interface CanvasConfig {
   analysisRoot: string;
   videoRoot: string;
   scaleCalendarPath: string;
+  geniusBrainsDataRoot: string;
   port: number;
+}
+
+export interface ViralBrainsDashboard {
+  generatedAt: string;
+  runs: Array<{
+    id: string;
+    status: string;
+    analysisStatus: string;
+    startedAt: string | null;
+    finishedAt: string | null;
+    spentCredits: number;
+    errorSummary: string | null;
+  }>;
+  candidates: Array<{
+    id: string;
+    runId: string;
+    platform: string;
+    language: string;
+    subtopic: string;
+    sourceQuery: string;
+    sourceUrl: string;
+    contentType: string;
+    text: string | null;
+    publishedAt: string | null;
+    metrics: Record<string, number | null>;
+    discoveryScore: number;
+    finalScore: number | null;
+    scoreComponents: Record<string, number>;
+    enrichmentStatus: string;
+    comments: Array<{id: string; author: string | null; text: string; likes: number | null}>;
+    transcript: {text: string; language: string | null; confidence: number | null} | null;
+    analysis: Record<string, unknown> | null;
+  }>;
+  reports: Array<{runId: string; type: string; markdownPath: string; jsonPath: string; document: Record<string, unknown> | null}>;
 }
 
 export interface AnalysisListEntry {

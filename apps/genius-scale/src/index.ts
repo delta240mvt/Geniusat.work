@@ -10,3 +10,4 @@ export * from './threads/client.js';
 export * from './threads/payload.js';
 export * from './threads/publish.js';
 export * from './utils/env.js';
+export * from './composio.js';

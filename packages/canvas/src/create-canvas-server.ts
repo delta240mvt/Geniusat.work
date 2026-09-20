@@ -5,6 +5,7 @@ import path from 'node:path';
 import {handleReelRequest} from './reels.js';
 import {readHealth} from './health.js';
 import {publisherHttp} from './publisher/http.js';
+import {readViralBrainsDashboard} from './brains-intelligence.js';
 import type {Publisher} from './publisher/service.js';
 
 import {
@@ -75,6 +76,11 @@ export const createCanvasServer = (config: CanvasConfig, publisher?: Publisher):
 
       if (url.pathname === '/api/brains-runs') {
         sendJson(response, await readBrainsRuns(config.workspaceRoot));
+        return;
+      }
+
+      if (url.pathname === '/api/genius-brains') {
+        sendJson(response, await readViralBrainsDashboard(config.geniusBrainsDataRoot));
         return;
       }
 

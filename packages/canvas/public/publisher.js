@@ -489,6 +489,8 @@ function draw() {
   root.querySelector("#pub-local-health")?.addEventListener("click", () => {
     void import("./configuration.js").then((m) => m.showConfiguration());
   });
+  const composioPanel = root.querySelector("#composio-settings");
+  if (composioPanel) void renderComposioSettings(composioPanel);
   const shelf = root.querySelector(".pub-upload-zone");
   if (shelf) {
     shelf.ondragover = (event) => {
@@ -567,8 +569,47 @@ function assetGrid(assets, compact = false) {
 function libraryMarkup() {
   return `<div class="pub-section-heading"><div><h2>Biblioteka treści</h2><p>Rolki i zdjęcia w jednym miejscu. Przeciągnij je do publikacji.</p></div><button class="btn" id="pub-studio-library">Wybierz ze studia ↗</button></div><div class="pub-upload-zone"><span aria-hidden="true">＋</span><div><strong>Przeciągnij pliki tutaj</strong><p>MP4, MOV, JPG, PNG, WebP · do 2 GB na plik</p></div><button class="btn" id="pub-upload">Wybierz z dysku</button></div>${assetGrid(data.assets)}`;
 }
+
+async function renderComposioSettings(target) {
+  target.innerHTML = '<span class="pub-eyebrow">COMPOSIO.DEV</span><h2>Połącz aplikacje bez tworzenia osobnych kont developerskich</h2><p>Łączenia OAuth i tokeny są przechowywane przez Composio. Genius@Scale pokazuje tylko aktualnie wykryte akcje publikacyjne.</p><p class="pub-inline-result">Wczytuję katalog możliwości…</p>';
+  try {
+    const [catalog, connections] = await Promise.all([
+      pubApi("composio/capabilities"),
+      pubApi("composio/connections"),
+    ]);
+    if (!target.isConnected) return;
+    const connectionByToolkit = new Map((connections.connections || []).map((item) => [item.toolkitSlug, item]));
+    const rows = (catalog.capabilities || []).map((capability) => {
+      const connection = connectionByToolkit.get(capability.toolkitSlug);
+      const label = connection?.displayName || connection?.alias || (connection ? "Połączono" : "Niepołączone");
+      const button = connection?.status === "ACTIVE"
+        ? `<span class="pub-connection-state connected">● ${esc(label)}</span>`
+        : capability.authConfigId
+          ? `<button class="pub-text-button" data-composio-connect="${esc(capability.authConfigId)}">Połącz ${esc(capability.toolkitName)} ↗</button>`
+          : '<span class="pub-connection-state">Brak auth config</span>';
+      return `<article class="pub-composio-row"><div><strong>${esc(capability.toolkitName)}</strong><small>${esc(capability.actionName)} · ${esc(capability.description)}</small></div>${button}</article>`;
+    }).join("");
+    target.innerHTML = `<span class="pub-eyebrow">COMPOSIO.DEV · GŁÓWNE POŁĄCZENIA</span><h2>Połącz aplikacje bez osobnych kont developerskich</h2><p>Łączenia OAuth i tokeny są przechowywane przez Composio. Poniżej pojawiają się wyłącznie wykryte akcje publikacyjne.</p>${catalog.configured ? rows || '<p class="pub-inline-result">Brak wykrytej akcji publikacyjnej w bieżącym katalogu.</p>' : `<p class="pub-inline-result">${esc(catalog.error || "Ustaw COMPOSIO_API_KEY w środowisku aplikacji.")}</p>`}`;
+    target.querySelectorAll("[data-composio-connect]").forEach((button) => {
+      button.onclick = async () => {
+        button.disabled = true;
+        try {
+          const result = await pubApi("composio/connect", {authConfigId: button.dataset.composioConnect});
+          window.open(result.redirectUrl, "_blank", "noopener,noreferrer");
+        } catch (error) {
+          toast(error.message, true);
+        } finally {
+          button.disabled = false;
+        }
+      };
+    });
+  } catch (error) {
+    if (target.isConnected) target.innerHTML = `<span class="pub-eyebrow">COMPOSIO.DEV</span><h2>Połączenia Composio</h2><p class="pub-inline-result">${esc(error.message)}</p>`;
+  }
+}
+
 function accountsMarkup() {
-  return `<div class="pub-section-heading"><div><h2>Połącz raz. Publikuj z jednego miejsca.</h2><p>Dodaj dane swojej aplikacji deweloperskiej, a potem zaloguj się na konto.</p></div></div><div class="pub-account-grid">${Object.entries(
+  return `<section id="composio-settings" class="pub-composio-panel"></section><div class="pub-section-heading"><div><h2>Połączenia natywne</h2><p>Istniejące połączenia platform pozostają dostępne jako tryb zgodności.</p></div></div><div class="pub-account-grid">${Object.entries(
     names,
   )
     .map(([p, name]) => {

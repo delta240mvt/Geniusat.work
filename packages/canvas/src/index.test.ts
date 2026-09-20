@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
 import {mkdtemp, mkdir, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
@@ -15,6 +16,7 @@ import {
   readScaleCalendar,
   resolveRequestPath,
 } from './index.js';
+import {readViralBrainsDashboard} from './brains-intelligence.js';
 import type {ScaleCalendar} from './index.js';
 import {reelCatalog} from './reels.js';
 
@@ -536,18 +538,22 @@ test('createCanvasServer serves preview-only canvas datasets', async () => {
 
     const contentResponse = await fetch(`${baseUrl}/api/content-runs`);
     const brainsResponse = await fetch(`${baseUrl}/api/brains-runs`);
+    const viralBrainsResponse = await fetch(`${baseUrl}/api/genius-brains`);
     const assetsResponse = await fetch(`${baseUrl}/api/assets`);
 
     assert.equal(contentResponse.status, 200);
     assert.equal(brainsResponse.status, 200);
+    assert.equal(viralBrainsResponse.status, 200);
     assert.equal(assetsResponse.status, 200);
 
     const contentRuns = (await contentResponse.json()) as unknown[];
     const brainsRuns = (await brainsResponse.json()) as unknown[];
+    const viralBrains = (await viralBrainsResponse.json()) as {runs: unknown[]; candidates: unknown[]};
     const assetLibrary = (await assetsResponse.json()) as {assets: Array<{name: string}>};
 
     assert.equal(contentRuns.length, 1);
     assert.equal(brainsRuns.length, 1);
+    assert.deepEqual(viralBrains, {generatedAt: viralBrains.generatedAt, runs: [], candidates: [], reports: []});
     assert.deepEqual(
       assetLibrary.assets.map((asset) => asset.name).sort(),
       ['comments.raw.json', 'frame.png', 'prompt.txt', 'videos.json'],
@@ -625,6 +631,35 @@ test('createCanvasServer returns 500 for wrong-shape scale calendar JSON', async
       server.close((error) => (error ? reject(error) : resolve()));
     });
   }
+});
+
+test('viral dashboard read model exposes persisted comments, transcripts and analyses', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'canvas-viral-dashboard-'));
+  const database = new DatabaseSync(path.join(root, 'brains.sqlite'));
+  database.exec(`
+    CREATE TABLE runs (id TEXT, status TEXT, analysis_status TEXT, started_at TEXT, finished_at TEXT, spent_credits INTEGER, error_summary TEXT, created_at TEXT);
+    CREATE TABLE candidates (id TEXT, run_id TEXT, platform TEXT, language TEXT, subtopic TEXT, source_query TEXT, source_url TEXT, content_type TEXT, text TEXT, published_at TEXT, metrics TEXT, discovery_score REAL, final_score REAL, score_components TEXT, enrichment_status TEXT);
+    CREATE TABLE comments (candidate_id TEXT, platform_comment_id TEXT, author TEXT, text TEXT, likes INTEGER);
+    CREATE TABLE transcripts (candidate_id TEXT, text TEXT, language TEXT, confidence REAL, status TEXT);
+    CREATE TABLE reports (run_id TEXT, report_type TEXT, markdown_path TEXT, json_path TEXT);
+  `);
+  database.prepare('INSERT INTO runs VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run('run-1', 'complete', 'complete', '2026-09-20T10:00:00Z', '2026-09-20T10:01:00Z', 18, null, '2026-09-20T10:00:00Z');
+  database.prepare('INSERT INTO candidates VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run('instagram:1', 'run-1', 'instagram', 'en', 'AI agents', 'AI agents', 'https://instagram.com/reel/1', 'reel', 'Build agents', '2026-09-20T09:00:00Z', JSON.stringify({views: 1000, likes: 50, comments: 12}), 88, 92, JSON.stringify({velocity: 0.9}), 'enriched');
+  database.prepare('INSERT INTO comments VALUES (?, ?, ?, ?, ?)').run('instagram:1', 'comment-1', 'viewer', 'How did you build it?', 9);
+  database.prepare('INSERT INTO transcripts VALUES (?, ?, ?, ?, ?)').run('instagram:1', 'Build an agent in three steps.', 'en', 0.94, 'complete');
+  database.prepare('INSERT INTO reports VALUES (?, ?, ?, ?)').run('run-1', 'viral-intelligence', 'run-1/reports/report.md', 'run-1/reports/report.json');
+  database.close();
+  await mkdir(path.join(root, 'run-1', 'analysis', 'items'), {recursive: true});
+  await writeFile(path.join(root, 'run-1', 'analysis', 'items', 'instagram-1.json'), JSON.stringify({summary: 'Specific workflow.'}), 'utf8');
+  await mkdir(path.join(root, 'run-1', 'reports'), {recursive: true});
+  await writeFile(path.join(root, 'run-1', 'reports', 'report.json'), JSON.stringify({synthesis: {recommendations: ['Show the workflow.']}}), 'utf8');
+
+  const dashboard = await readViralBrainsDashboard(root);
+  assert.equal(dashboard.runs[0].id, 'run-1');
+  assert.equal(dashboard.candidates[0].transcript?.confidence, 0.94);
+  assert.equal(dashboard.candidates[0].comments[0].text, 'How did you build it?');
+  assert.equal(dashboard.candidates[0].analysis?.summary, 'Specific workflow.');
+  assert.equal(dashboard.reports[0].document?.synthesis && typeof dashboard.reports[0].document?.synthesis, 'object');
 });
 test('reel catalog migrates saved engine settings, serves only Hyperframes exports and rejects removed engines', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'canvas-hyperframes-only-'));

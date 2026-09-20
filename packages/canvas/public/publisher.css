@@ -109,6 +109,37 @@
   font-size: 13px;
   margin: 8px 0 0;
 }
+.pub-composio-panel {
+  border: 1px solid #c9cbc7;
+  background: #fffefa;
+  padding: 22px;
+  margin: 0 0 28px;
+}
+.pub-composio-panel h2 {
+  margin: 8px 0 6px;
+}
+.pub-composio-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border-top: 1px solid #e2e4e0;
+  padding: 14px 0;
+}
+.pub-composio-row div {
+  display: grid;
+  gap: 5px;
+}
+.pub-composio-row small {
+  color: #656565;
+}
+.pub-connection-state {
+  color: #656565;
+  white-space: nowrap;
+}
+.pub-connection-state.connected {
+  color: #27704c;
+}
 .pub-calendar-nav {
   display: flex;
   align-items: center;

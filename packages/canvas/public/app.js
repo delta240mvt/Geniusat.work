@@ -11,14 +11,16 @@ const metricRuns = document.getElementById('metric-runs');
 const metricNodes = document.getElementById('metric-nodes');
 const metricPrompts = document.getElementById('metric-prompts');
 const metricAssets = document.getElementById('metric-assets');
+let brainsAnalysisCandidateId = null;
 
 const appConfig = {
   brains: {
-    title: 'Analiza komentarzy',
+    title: 'Viral Intelligence',
     tabs: [
-      ['comments', 'Komentarze'],
-      ['channels', 'Kanały'],
-      ['insights', 'Wnioski'],
+      ['summary', 'Run summary'],
+      ['radar', 'Viral radar'],
+      ['analysis', 'Analiza treści'],
+      ['trends', 'Trends / report'],
     ],
   },
   content: {
@@ -57,6 +59,7 @@ const state = {
   },
   contentRuns: [],
   brainsRuns: [],
+  brainsIntelligence: {generatedAt: null, runs: [], candidates: [], reports: []},
   calendar: {generatedAt: null, entries: []},
   assets: {generatedAt: null, assets: []},
   analysisList: [],
@@ -156,7 +159,13 @@ const getRunsForActiveApp = () => {
     return getContentRunsForActiveWorkspace();
   }
   if (state.activeApp === 'brains') {
-    return state.brainsRuns;
+    return state.brainsIntelligence.runs.map((run) => ({
+      id: run.id,
+      title: `Genius@Brains · ${run.id}`,
+      status: run.status,
+      updatedAt: new Date(run.finishedAt || run.startedAt || 0).getTime(),
+      rootPath: 'apps/genius-brains/output/viral',
+    }));
   }
   return state.calendar.entries.map((entry) => ({
     id: entry.id,
@@ -178,7 +187,7 @@ const getSelectedRun = () => {
 };
 
 const setSelectedDefaults = () => {
-  state.selectedRunId.brains ||= state.brainsRuns[0]?.id ?? null;
+  state.selectedRunId.brains ||= state.brainsIntelligence.runs[0]?.id ?? state.brainsRuns[0]?.id ?? null;
   state.selectedRunId.contentAiStudio ||= state.contentRuns.find((run) => (run.workspaceKind || 'ai-studio') === 'ai-studio')?.id ?? null;
   state.selectedRunId.contentReels ||= state.contentRuns.find((run) => run.workspaceKind === 'reels')?.id ?? null;
   state.selectedRunId.scale ||= state.calendar.entries[0]?.id ?? null;
@@ -196,7 +205,7 @@ const renderMetrics = () => {
   metricNodes.textContent = String((selectedRun?.nodes || []).length);
   metricPrompts.textContent = String(
     state.activeApp === 'brains'
-      ? (selectedRun?.comments || []).length
+      ? state.brainsIntelligence.candidates.filter((candidate) => candidate.runId === selectedRun?.id).length
       : state.activeApp === 'content'
         ? (selectedRun?.prompts || []).length
         : state.analysisList.length,
@@ -841,6 +850,116 @@ const renderContentPreview = (run) => {
   tabContent.replaceChildren(shell);
 };
 
+const brainsCandidatesForRun = (run) => state.brainsIntelligence.candidates.filter((candidate) => !run || candidate.runId === run.id);
+
+const appendExternalLink = (parent, url, label = 'Otwórz źródło') => {
+  if (!url) return;
+  const link = document.createElement('a');
+  link.href = url;
+  link.target = '_blank';
+  link.rel = 'noreferrer noopener';
+  link.textContent = label;
+  link.className = 'source-link';
+  parent.appendChild(link);
+};
+
+const renderBrainsSummary = (run) => {
+  const selected = state.brainsIntelligence.runs.find((item) => item.id === run?.id) || state.brainsIntelligence.runs[0];
+  const candidates = brainsCandidatesForRun(selected);
+  const panel = createElement('section', 'panel pad');
+  panel.append(
+    createElement('div', 'panel-title', 'Genius@Brains · Run summary'),
+    createElement('div', 'small', selected ? `${selected.id} · ${formatDateTime(selected.finishedAt || selected.startedAt)}` : 'Brak uruchomionego runu.'),
+  );
+  const grid = createElement('div', 'metrics-grid');
+  [['Crawl', selected?.status || 'empty'], ['Analysis', selected?.analysisStatus || 'pending'], ['Candidates', String(candidates.length)], ['Credits', String(selected?.spentCredits ?? 0)]]
+    .forEach(([label, value]) => grid.appendChild(createElement('article', 'metric-card', `${label}\n${value}`)));
+  panel.appendChild(grid);
+  if (selected?.errorSummary) panel.appendChild(createElement('pre', 'source-block', selected.errorSummary));
+  tabContent.replaceChildren(panel);
+};
+
+const renderBrainsRadar = (run) => {
+  const candidates = brainsCandidatesForRun(run);
+  const panel = createElement('section', 'panel pad');
+  panel.appendChild(createElement('div', 'panel-title', `Viral radar · ${candidates.length} kandydatów`));
+  const table = document.createElement('table');
+  table.className = 'table';
+  table.innerHTML = '<tr><th>Score</th><th>Platforma</th><th>Treść</th><th>Metrics</th><th>Status</th></tr>';
+  candidates.forEach((candidate) => {
+    const row = document.createElement('tr');
+    const score = document.createElement('td'); score.textContent = String(candidate.finalScore ?? candidate.discoveryScore);
+    const platform = document.createElement('td'); platform.textContent = `${candidate.platform} / ${candidate.language}`;
+    const content = document.createElement('td'); content.textContent = clampText(candidate.text || candidate.sourceQuery, 120); appendExternalLink(content, candidate.sourceUrl);
+    const metrics = document.createElement('td'); metrics.textContent = `views ${candidate.metrics.views ?? '-'} · likes ${candidate.metrics.likes ?? '-'} · comments ${candidate.metrics.comments ?? candidate.metrics.replies ?? '-'}`;
+    const status = document.createElement('td'); status.appendChild(createElement('span', getStatusClassName(candidate.enrichmentStatus), getStatusText(candidate.enrichmentStatus)));
+    row.append(score, platform, content, metrics, status); table.appendChild(row);
+  });
+  panel.appendChild(table);
+  if (!candidates.length) panel.appendChild(createElement('div', 'empty-state', 'Brak wyników viral radar.'));
+  tabContent.replaceChildren(panel);
+};
+
+const renderBrainsAnalysis = (run) => {
+  const candidates = brainsCandidatesForRun(run);
+  const candidate = candidates.find((item) => item.id === brainsAnalysisCandidateId) || candidates[0];
+  brainsAnalysisCandidateId = candidate?.id || null;
+  const panel = createElement('section', 'panel pad');
+  panel.appendChild(createElement('div', 'panel-title', candidate ? `Analiza · ${candidate.id}` : 'Analiza treści'));
+  if (!candidate) {
+    panel.appendChild(createElement('div', 'empty-state', 'Brak wybranych kandydatów do analizy.'));
+  } else {
+    const selector = document.createElement('select');
+    selector.className = 'select-pill';
+    selector.setAttribute('aria-label', 'Wybierz analizowany viral');
+    candidates.forEach((item) => {
+      const option = document.createElement('option');
+      option.value = item.id;
+      option.textContent = `${item.platform} · ${item.id}`;
+      option.selected = item.id === candidate.id;
+      selector.appendChild(option);
+    });
+    selector.onchange = () => {
+      brainsAnalysisCandidateId = selector.value;
+      renderBrainsAnalysis(run);
+    };
+    panel.appendChild(selector);
+    appendExternalLink(panel, candidate.sourceUrl, 'Obejrzyj oryginał');
+    panel.appendChild(createElement('p', null, candidate.text || candidate.sourceQuery));
+    if (candidate.transcript) {
+      const transcript = createElement('details', 'panel-body');
+      transcript.open = true;
+      transcript.append(
+        createElement('summary', null, `Transkrypcja · ${candidate.transcript.language || 'język nieustalony'} · confidence ${candidate.transcript.confidence ?? '-'}`),
+        createElement('p', 'source-block', candidate.transcript.text),
+      );
+      panel.appendChild(transcript);
+    }
+    if (candidate.analysis) panel.appendChild(createElement('pre', 'source-block', JSON.stringify(candidate.analysis, null, 2)));
+    const comments = createElement('div', 'panel-body');
+    candidate.comments.forEach((comment) => comments.appendChild(createElement('article', 'comment-row', `${comment.author || 'anon'} · ${comment.likes ?? 0} likes\n${comment.text}`)));
+    panel.appendChild(comments);
+  }
+  tabContent.replaceChildren(panel);
+};
+
+const renderBrainsTrends = (_run) => {
+  const panel = createElement('section', 'panel pad');
+  panel.appendChild(createElement('div', 'panel-title', 'Trends / report'));
+  state.brainsIntelligence.reports.forEach((report) => {
+    const document = report.document || {};
+    const synthesis = document.synthesis || {};
+    const article = createElement('article', 'node-row');
+    article.append(
+      createElement('div', 'node-title', `${report.type} · ${report.runId}`),
+      createElement('pre', 'source-block', JSON.stringify({topics: synthesis.recurringTopics || [], hooks: synthesis.recurringHooks || [], recommendations: synthesis.recommendations || []}, null, 2)),
+    );
+    panel.appendChild(article);
+  });
+  if (!state.brainsIntelligence.reports.length) panel.appendChild(createElement('div', 'empty-state', 'Brak raportu syntezy. Uruchom analizę Codex po crawl runie.'));
+  tabContent.replaceChildren(panel);
+};
+
 const renderComments = (run) => {
   const layout = createElement('div', 'detail-grid');
   const commentsPanel = createElement('section', 'panel');
@@ -1138,12 +1257,14 @@ const renderActiveTabContent = () => {
     renderContentPrompts(run);
   } else if (state.activeApp === 'content') {
     renderContentPreview(run);
-  } else if (state.activeApp === 'brains' && state.activeSubTab === 'comments') {
-    renderComments(run);
-  } else if (state.activeApp === 'brains' && state.activeSubTab === 'channels') {
-    renderChannels(run);
+  } else if (state.activeApp === 'brains' && state.activeSubTab === 'summary') {
+    renderBrainsSummary(run);
+  } else if (state.activeApp === 'brains' && state.activeSubTab === 'radar') {
+    renderBrainsRadar(run);
+  } else if (state.activeApp === 'brains' && state.activeSubTab === 'analysis') {
+    renderBrainsAnalysis(run);
   } else if (state.activeApp === 'brains') {
-    renderInsights(run);
+    renderBrainsTrends(run);
   } else if (state.activeSubTab === 'calendar') {
     renderScaleCalendar();
   } else if (state.activeSubTab === 'runs') {
@@ -1189,16 +1310,18 @@ const loadData = async () => {
     try { return await fetchJson(url, fallback); }
     catch { state.loadWarnings.push(url); return fallback; }
   };
-  const [contentRuns, brainsRuns, calendar, assets, analysisList] = await Promise.all([
+  const [contentRuns, brainsRuns, calendar, assets, analysisList, brainsIntelligence] = await Promise.all([
     readOptional('/api/content-runs', []),
     readOptional('/api/brains-runs', []),
     readOptional('/api/scale-calendar', {generatedAt: null, entries: []}),
     readOptional('/api/assets', {generatedAt: null, assets: []}),
     readOptional('/api/analysis-list', []),
+    readOptional('/api/genius-brains', {generatedAt: null, runs: [], candidates: [], reports: []}),
   ]);
 
   state.contentRuns = Array.isArray(contentRuns) ? contentRuns : [];
   state.brainsRuns = Array.isArray(brainsRuns) ? brainsRuns : [];
+  state.brainsIntelligence = brainsIntelligence && Array.isArray(brainsIntelligence.runs) ? brainsIntelligence : {generatedAt: null, runs: [], candidates: [], reports: []};
   state.calendar = calendar && Array.isArray(calendar.entries) ? calendar : {generatedAt: null, entries: []};
   state.assets = assets && Array.isArray(assets.assets) ? assets : {generatedAt: null, assets: []};
   state.analysisList = Array.isArray(analysisList) ? analysisList : [];

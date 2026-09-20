@@ -14,6 +14,7 @@ import {createThreadsClient, type ThreadsFetch} from '../threads/client.js';
 import {buildThreadsDryRunPayload} from '../threads/payload.js';
 import {publishContentItem} from '../threads/publish.js';
 import {loadWorkspaceEnv, resolveEnvSecret} from '../utils/env.js';
+import {ComposioClient, publishThroughComposio} from '../composio.js';
 
 export interface CliDependencies {
   fetch?: ThreadsFetch;
@@ -27,13 +28,21 @@ Commands:
   calendar
   dry-run
   publish
-  check:threads`;
+  check:threads
+  composio:capabilities
+  composio:connections
+  composio:connect --auth-config-id <id>`;
 
 interface CliOptions {
   projectFile?: string;
   contentFile?: string;
   outputRoot?: string;
   item?: string;
+  provider?: 'composio';
+  actionSlug?: string;
+  connectionId?: string;
+  authConfigId?: string;
+  alias?: string;
 }
 
 const parseArgs = (argv: string[]): {command?: string; options: CliOptions} => {
@@ -62,6 +71,17 @@ const parseArgs = (argv: string[]): {command?: string; options: CliOptions} => {
       options.outputRoot = value;
     } else if (arg === '--item') {
       options.item = value;
+    } else if (arg === '--provider') {
+      if (value !== 'composio') throw new Error('provider must be composio');
+      options.provider = 'composio';
+    } else if (arg === '--action-slug') {
+      options.actionSlug = value;
+    } else if (arg === '--connection-id') {
+      options.connectionId = value;
+    } else if (arg === '--auth-config-id') {
+      options.authConfigId = value;
+    } else if (arg === '--alias') {
+      options.alias = value;
     } else {
       throw new Error(`Unknown option: ${arg}`);
     }
@@ -76,6 +96,30 @@ const requireOption = (options: CliOptions, key: keyof CliOptions, command: stri
     throw new Error(`${command} requires --${key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)} <path>`);
   }
   return value;
+};
+
+const composioClientFromEnv = (): ComposioClient => {
+  const apiKey = resolveEnvSecret('COMPOSIO_API_KEY');
+  if (!apiKey) throw new Error('Missing COMPOSIO_API_KEY.');
+  const userId = process.env.COMPOSIO_USER_ID?.trim() || 'genius-scale-local';
+  return new ComposioClient({apiKey, userId, baseUrl: process.env.COMPOSIO_BASE_URL});
+};
+
+const runComposioCapabilities = async (): Promise<string> => {
+  loadWorkspaceEnv();
+  return JSON.stringify(await composioClientFromEnv().listPublishingCapabilities(), null, 2);
+};
+
+const runComposioConnections = async (): Promise<string> => {
+  loadWorkspaceEnv();
+  return JSON.stringify(await composioClientFromEnv().listConnections(), null, 2);
+};
+
+const runComposioConnect = async (options: CliOptions): Promise<string> => {
+  loadWorkspaceEnv();
+  const authConfigId = requireOption(options, 'authConfigId', 'composio:connect');
+  const result = await composioClientFromEnv().createConnectLink({authConfigId, alias: options.alias});
+  return result.redirectUrl;
 };
 
 const writeCalendarArtifacts = async (
@@ -228,14 +272,24 @@ const runPublish = async (options: CliOptions, dependencies: CliDependencies): P
     throw new Error(`Content item not found: ${selectedItemId}`);
   }
 
-  const accessTokenEnv = project.platforms.threads?.accessTokenEnv;
-  const accessToken = accessTokenEnv ? resolveEnvSecret(accessTokenEnv) : undefined;
-  const artifact = await publishContentItem({
-    item: selectedItem,
-    project,
-    accessToken,
-    fetchImpl: dependencies.fetchImpl ?? dependencies.fetch,
-  });
+  let artifact: RunArtifact;
+  if (options.provider === 'composio') {
+    const actionSlug = requireOption(options, 'actionSlug', 'publish --provider composio');
+    const connectionId = requireOption(options, 'connectionId', 'publish --provider composio');
+    const client = composioClientFromEnv();
+    const capability = (await client.listPublishingCapabilities()).find((item) => item.actionSlug === actionSlug);
+    if (!capability) throw new Error(`Composio publishing action not found or not allowed: ${actionSlug}`);
+    artifact = await publishThroughComposio({client, capability, connectionId, item: selectedItem});
+  } else {
+    const accessTokenEnv = project.platforms.threads?.accessTokenEnv;
+    const accessToken = accessTokenEnv ? resolveEnvSecret(accessTokenEnv) : undefined;
+    artifact = await publishContentItem({
+      item: selectedItem,
+      project,
+      accessToken,
+      fetchImpl: dependencies.fetchImpl ?? dependencies.fetch,
+    });
+  }
   const artifactPath = await writeRunArtifact(paths, artifact);
   const message = artifact.message ?? (artifact.status === 'ok' ? 'Published to Threads.' : 'Threads publish failed.');
   const updatedItems = items.map((item) => {
@@ -272,7 +326,9 @@ const runPublish = async (options: CliOptions, dependencies: CliDependencies): P
     return `failed: ${message}`;
   }
 
-  return `Published ${selectedItemId} to Threads.`;
+  return options.provider === 'composio'
+    ? `Published ${selectedItemId} through Composio.`
+    : `Published ${selectedItemId} to Threads.`;
 };
 
 const runCheckThreads = async (options: CliOptions, dependencies: CliDependencies): Promise<string> => {
@@ -325,6 +381,18 @@ export async function runCli(argv = process.argv.slice(2), dependencies: CliDepe
 
   if (command === 'check:threads') {
     return runCheckThreads(options, dependencies);
+  }
+
+  if (command === 'composio:capabilities') {
+    return runComposioCapabilities();
+  }
+
+  if (command === 'composio:connections') {
+    return runComposioConnections();
+  }
+
+  if (command === 'composio:connect') {
+    return runComposioConnect(options);
   }
 
   throw new Error(`Unknown command: ${command}`);
