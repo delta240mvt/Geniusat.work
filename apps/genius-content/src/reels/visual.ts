@@ -1,11 +1,12 @@
 import {BRAND as B, captionPages, reelDuration, type Reel, type ReelScene} from './model';
+import {SAFE_CSS, safeFrameMarkup} from './safe-visual';
 
 export const escapeHtml = (value: string) => value.replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]!));
 const clamp = (n: number) => Math.max(0, Math.min(1, n));
 const ease = (n: number) => 1 - Math.pow(1 - clamp(n), 3);
 export const FONT_CSS = `@font-face{font-family:Inter;src:url('fonts/inter-latin-v1.woff2');font-weight:100 900;font-display:block}@font-face{font-family:'IBM Plex Mono';src:url('fonts/ibm-plex-mono-400-latin-v1.woff2');font-weight:400;font-display:block}@font-face{font-family:'IBM Plex Mono';src:url('fonts/ibm-plex-mono-500-latin-v1.woff2');font-weight:500;font-display:block}`;
 
-export const VISUAL_CSS = `
+export const VISUAL_CSS = SAFE_CSS + `
 .d240-stage,.d240-stage *{box-sizing:border-box}.d240-stage{width:1080px;height:1920px;position:relative;overflow:hidden;background:${B.ivory};color:${B.ink};font-family:${B.sans};font-synthesis:none}
 .d240-video{position:absolute!important;left:64px!important;top:762px!important;width:952px!important;height:914px!important;object-fit:cover!important;object-position:50% 28%!important}
 .d240-overlay{position:absolute;inset:0;pointer-events:none}.d240-top{position:absolute;left:0;top:0;width:1080px;height:762px;background:${B.ivory};padding:0 64px}
@@ -48,6 +49,7 @@ function graphic(scene: ReelScene, t: number): string {
 
 /** Pure frame function used by the GSAP/Hyperframes timeline and preview. */
 export function frameMarkup(reel: Reel, time: number): string {
+  if (reel.motionConcept) return safeFrameMarkup(reel, time);
   time=Math.max(0,Math.min(time,reelDuration(reel)-1/30));
   const index = Math.max(0, reel.scenes.findIndex(s => time >= s.start && time < s.end));
   const scene = reel.scenes[index];

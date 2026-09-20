@@ -68,6 +68,7 @@ export async function prepareReel(reel: Reel, report: (s:string)=>void = console
   const json=JSON.stringify(reel).replaceAll('<','\\u003c');
   const html=`<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(reel.title)}</title><style>${FONT_CSS}${VISUAL_CSS}html,body{margin:0;overflow:hidden;background:#F8F7F3}#stage{transform-origin:top left}video{display:block}</style></head><body><div id="stage" class="d240-stage" data-composition-id="${reel.id}" data-start="0" data-duration="${reelDuration(reel)}" data-width="1080" data-height="1920" data-fps="30"><video id="footage" class="clip d240-video" data-start="0" data-duration="${reelDuration(reel)}" data-track-index="0" src="source.mp4" playsinline preload="auto"></video><div id="graphics" class="clip" data-start="0" data-duration="${reelDuration(reel)}" data-track-index="1">${frameMarkup(reel,0)}</div></div><script type="application/json" id="reel-data">${json}</script><script src="motion.js"></script></body></html>`;
   await writeFile(path.join(dir,'index.html'),html
+    .replace('class="d240-stage"', `class="d240-stage${reel.motionConcept ? ' d240-full' : ''}"`)
     .replace('src="source.mp4"', 'src="source.mp4" data-has-audio="true"')
     .replace('<script src="motion.js">','<script>window.__timelines = window.__timelines || {};</script><script src="motion.js">'));
   await writeFile(path.join(dir,'reel.json'),JSON.stringify(reel,null,2));

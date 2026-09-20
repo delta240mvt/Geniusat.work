@@ -21,6 +21,7 @@ export const reelSchema = z.object({
   title: z.string().min(1).max(100), sourceId: z.string().regex(/^[a-z0-9-]+$/),
   sourceFile: z.string().regex(/^[\w.-]+\.(mp4|mov)$/i),
   style: z.enum(['editorial', 'signal']), preferredEngine: z.literal('hyperframes').default('hyperframes'),
+  motionConcept: z.enum(['interface', 'metaphor', 'transformation']).optional(),
   clips: z.array(z.object({start: z.number().nonnegative(), end: z.number().positive()})).min(1),
   scenes: z.array(sceneSchema).min(1), words: z.array(wordSchema),
   sourceNote: z.string(),
