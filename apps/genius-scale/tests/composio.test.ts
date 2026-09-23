@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import {describe, it} from 'vitest';
-import {ComposioClient, buildComposioArguments, publishThroughComposio} from '../src/composio.js';
+import {ComposioClient, buildComposioArguments, isPotentialPublishAction, publishThroughComposio} from '../src/composio.js';
+import {createHash} from 'node:crypto';
+import path from 'node:path';
+import {composioUserId} from '../src/utils/env.js';
 import type {ContentItem} from '../src/config/schema.js';
 
 const item: ContentItem = {
@@ -17,6 +20,17 @@ const item: ContentItem = {
 };
 
 describe('Composio publishing adapter', () => {
+it('does not advertise social messaging or campaigns as publishing actions', () => {
+  assert.equal(isPotentialPublishAction({slug: 'SOCIAL_CREATE_POST'}), true);
+  assert.equal(isPotentialPublishAction({slug: 'SOCIAL_CREATE_CAMPAIGN', description: 'Create a campaign to promote posts'}), false);
+  assert.equal(isPotentialPublishAction({slug: 'SOCIAL_SEND_MESSAGE', description: 'Send a post as a message'}), false);
+});
+it('uses the same workspace identity as the localhost dashboard', () => {
+  const root = path.resolve('C:/workspace/genius');
+  const expected = `genius-${createHash('sha256').update(root.toLowerCase()).digest('hex').slice(0, 16)}`;
+  assert.equal(composioUserId(root, {}), expected);
+  assert.equal(composioUserId(root, {COMPOSIO_USER_ID: 'custom-user'}), 'custom-user');
+});
 it('exposes social publishing actions and hides unrelated toolkits', async () => {
   const calls: string[] = [];
   const client = new ComposioClient({
@@ -71,5 +85,29 @@ it('connects and publishes while keeping the provider key in request headers onl
   assert.equal(artifact.status, 'ok');
   assert.ok(requests.every(({init}) => !JSON.stringify(init?.body ?? '').includes('secret-provider-key')));
   assert.equal(new Headers(requests[0].init?.headers).get('x-api-key'), 'secret-provider-key');
+});
+
+it('does not report publication when Composio returns an execution failure', async () => {
+  const client = new ComposioClient({
+    apiKey: 'test-key',
+    userId: 'genius-test',
+    fetchImpl: async () => Response.json({successful: false, error: 'Platform rejected the post'}),
+  });
+  const artifact = await publishThroughComposio({
+    client,
+    capability: {
+      actionSlug: 'SOCIAL_CREATE_POST',
+      actionName: 'Create post',
+      description: '',
+      toolkitSlug: 'social',
+      toolkitName: 'Social',
+      inputParameters: {text: {required: true}},
+      authConfigId: 'ac_social',
+    },
+    connectionId: 'ca_1',
+    item,
+  });
+  assert.equal(artifact.status, 'failed');
+  assert.match(artifact.message ?? '', /Platform rejected the post/);
 });
 });

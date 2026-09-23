@@ -1,9 +1,13 @@
 import path from 'node:path';
+import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {config as loadDotenv} from 'dotenv';
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const workspaceRoot = path.resolve(packageRoot, '..', '..');
+
+export const composioUserId = (root: string = workspaceRoot, env: NodeJS.ProcessEnv = process.env): string =>
+  env.COMPOSIO_USER_ID?.trim() || `genius-${createHash('sha256').update(path.resolve(root).toLowerCase()).digest('hex').slice(0, 16)}`;
 
 export const loadWorkspaceEnv = (envPath = path.join(workspaceRoot, '.env')): void => {
   loadDotenv({path: envPath});

@@ -173,9 +173,10 @@ function redactComposioValue(value: unknown, key = ''): unknown {
 }
 
 export function isPotentialPublishAction(tool: ComposioTool): boolean {
-  const text = `${tool.slug} ${tool.name ?? ''} ${tool.description ?? ''} ${tool.human_description ?? ''} ${(tool.tags ?? []).join(' ')}`.toLowerCase();
-  if (!/(publish|posting|post|upload|send|create)/.test(text)) return false;
-  return !/(read|list|fetch|search|find|delete|remove|comment|like|follow|analytics|insight|metric)/.test(tool.slug.toLowerCase());
+  const slug = tool.slug.toLowerCase();
+  const publishesContent = /(?:^|[_-])(?:publish|post|upload)(?:$|[_-])/.test(slug)
+    || /(?:^|[_-])create[_-](?:tweet|reel|story|thread)(?:$|[_-])/.test(slug);
+  return publishesContent && !/(?:^|[_-])(?:read|list|fetch|search|find|delete|remove|comment|like|follow|message|campaign|advertisement|ads|analytics|insight|metric)(?:$|[_-])/.test(slug);
 }
 
 export function isContentToolkit(toolkit: ComposioToolkit | undefined, tool: ComposioTool): boolean {

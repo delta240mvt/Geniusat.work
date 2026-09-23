@@ -49,33 +49,31 @@ async function runAnalyzeCommand(argv: string[]): Promise<string> {
   const runId = requireOption(argv, '--run-id');
   const dataRoot = resolveDataRoot();
   const repository = openRepository(dataRoot);
-  if (!repository.getRun(runId)) {
-    repository.close();
-    throw new Error(`Run not found: ${runId}`);
-  }
-  const candidates = repository.listSelectedCandidates(runId);
-  repository.setAnalysisStatus(runId, 'running');
+  try {
+    if (!repository.getRun(runId)) throw new Error(`Run not found: ${runId}`);
+    const codexOutput = readOption(argv, '--codex-output');
+    if (codexOutput) {
+      const report = await ingestCodexAnalysis({runId, dataRoot, repository, inputPath: codexOutput});
+      return JSON.stringify({runId, reportPath: report.markdownPath}, null, 2);
+    }
 
-  const deepgramKey = process.env.DEEPGRAM_API_KEY?.trim();
-  const transcription = deepgramKey
-    ? await transcribeSelectedCandidates({
-        runId,
-        dataRoot,
-        candidates,
-        repository,
-        client: new DeepgramClient({apiKey: deepgramKey}),
-      })
-    : recordTranscriptionUnavailable({candidates, repository, reason: 'DEEPGRAM_API_KEY is missing.'});
-  const prepared = await prepareAnalysisPack({runId, dataRoot, repository});
-  const codexOutput = readOption(argv, '--codex-output');
-  if (codexOutput) {
-    const report = await ingestCodexAnalysis({runId, dataRoot, repository, inputPath: codexOutput});
+    const candidates = repository.listSelectedCandidates(runId);
+    repository.setAnalysisStatus(runId, 'running');
+    const deepgramKey = process.env.DEEPGRAM_API_KEY?.trim();
+    const transcription = deepgramKey
+      ? await transcribeSelectedCandidates({
+          runId,
+          dataRoot,
+          candidates,
+          repository,
+          client: new DeepgramClient({apiKey: deepgramKey}),
+        })
+      : recordTranscriptionUnavailable({candidates, repository, reason: 'DEEPGRAM_API_KEY is missing.'});
+    const prepared = await prepareAnalysisPack({runId, dataRoot, repository});
+    return JSON.stringify({runId, packPath: prepared.packPath, promptPath: prepared.promptPath, transcription, next: `Run Codex against ${prepared.packPath}, save JSON, then rerun with --codex-output <path>.`}, null, 2);
+  } finally {
     repository.close();
-    return JSON.stringify({runId, packPath: prepared.packPath, reportPath: report.markdownPath, transcription}, null, 2);
   }
-
-  repository.close();
-  return JSON.stringify({runId, packPath: prepared.packPath, promptPath: prepared.promptPath, transcription, next: `Run Codex against ${prepared.packPath}, save JSON, then rerun with --codex-output <path>.`}, null, 2);
 }
 
 async function runReportCommand(argv: string[]): Promise<string> {

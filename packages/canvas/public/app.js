@@ -39,6 +39,7 @@ const appConfig = {
       ['calendar', 'Kalendarz'],
       ['runs', 'Historia'],
       ['assets', 'Materiały'],
+      ['accounts', 'Połączenia'],
     ],
   },
 };
@@ -105,7 +106,7 @@ const navigateToItem = (item) => {
 const renderPrimaryNavigation = () => {
   const fallbackState = getNavigationState(state);
   const activeItemId = state.activeNavigationItemId || fallbackState.activeItem;
-  const openSection = state.openNavSection || fallbackState.openSection;
+  const openSection = state.openNavSection ?? fallbackState.openSection;
   primaryNav.replaceChildren();
 
   navigationSections.forEach((section, index) => {
@@ -113,6 +114,7 @@ const renderPrimaryNavigation = () => {
     const heading = createElement('button', 'nav-group-heading');
     heading.type = 'button';
     heading.setAttribute('aria-expanded', String(openSection === section.id));
+    heading.setAttribute('aria-controls', `nav-${section.id}-items`);
     heading.id = `nav-${section.id}`;
     heading.append(
       createElement('span', 'nav-group-icon', section.icon),
@@ -120,7 +122,11 @@ const renderPrimaryNavigation = () => {
       createElement('span', 'nav-group-eyebrow', section.eyebrow),
       createElement('span', 'nav-chevron', openSection === section.id ? '⌃' : '⌄'),
     );
-    heading.addEventListener('click', () => navigateToItem(section.items[0]));
+    heading.addEventListener('click', () => {
+      state.openNavSection = openSection === section.id ? '' : section.id;
+      renderPrimaryNavigation();
+      document.getElementById(heading.id)?.focus();
+    });
     group.appendChild(heading);
 
     const itemList = createElement('div', 'nav-submenu');
@@ -289,7 +295,9 @@ const renderRunList = () => {
       button.append(createElement('span', null, label), createElement('b', null, String(count)));
       button.addEventListener('click', () => {
         state.activeContentWorkspace = kind;
-        state.activeSubTab = appConfig.content.tabs[0][0];
+        state.activeSubTab = kind === 'ai-studio' ? 'flow' : 'studio';
+        state.activeNavigationItemId = kind === 'ai-studio' ? 'content-ai-studio' : 'content-studio';
+        state.openNavSection = 'content';
         render();
       });
       switcher.appendChild(button);
@@ -925,17 +933,34 @@ const appendExternalLink = (parent, url, label = 'Otwórz źródło') => {
   parent.appendChild(link);
 };
 
+const appendInsightList = (parent, title, items) => {
+  if (!Array.isArray(items) || !items.length) return;
+  const section = createElement('section', 'brain-insight-section');
+  section.appendChild(createElement('h3', null, title));
+  const list = createElement('ul');
+  items.forEach((item) => {
+    const detail = typeof item === 'string' ? item : `${item.label || ''}${item.evidenceRefs?.length ? ` · źródła: ${item.evidenceRefs.join(', ')}` : ''}`;
+    list.appendChild(createElement('li', null, detail));
+  });
+  section.appendChild(list);
+  parent.appendChild(section);
+};
+
 const renderBrainsSummary = (run) => {
   const selected = state.brainsIntelligence.runs.find((item) => item.id === run?.id) || state.brainsIntelligence.runs[0];
   const candidates = brainsCandidatesForRun(selected);
   const panel = createElement('section', 'panel pad');
   panel.append(
-    createElement('div', 'panel-title', 'Genius@Brains · Run summary'),
-    createElement('div', 'small', selected ? `${selected.id} · ${formatDateTime(selected.finishedAt || selected.startedAt)}` : 'Brak uruchomionego runu.'),
+    createElement('div', 'panel-title', 'Podsumowanie analizy viralowej'),
+    createElement('div', 'small', selected ? `${selected.id} · ${formatDateTime(selected.finishedAt || selected.startedAt)}` : 'Brak uruchomionej analizy.'),
   );
-  const grid = createElement('div', 'metrics-grid');
-  [['Crawl', selected?.status || 'empty'], ['Analysis', selected?.analysisStatus || 'pending'], ['Candidates', String(candidates.length)], ['Credits', String(selected?.spentCredits ?? 0)]]
-    .forEach(([label, value]) => grid.appendChild(createElement('article', 'metric-card', `${label}\n${value}`)));
+  const grid = createElement('div', 'metrics-grid brain-stats');
+  [['Wyszukiwanie', selected?.status || 'brak'], ['Analiza AI', selected?.analysisStatus || 'oczekuje'], ['Znalezione treści', String(candidates.length)], ['Kredyty SocialCrawl', String(selected?.spentCredits ?? 0)]]
+    .forEach(([label, value]) => {
+      const card = createElement('article', 'brain-stat-card');
+      card.append(createElement('span', null, label), createElement('strong', null, value));
+      grid.appendChild(card);
+    });
   panel.appendChild(grid);
   if (selected?.errorSummary) panel.appendChild(createElement('pre', 'source-block', selected.errorSummary));
   tabContent.replaceChildren(panel);
@@ -947,17 +972,19 @@ const renderBrainsRadar = (run) => {
   panel.appendChild(createElement('div', 'panel-title', `Viral radar · ${candidates.length} kandydatów`));
   const table = document.createElement('table');
   table.className = 'table';
-  table.innerHTML = '<tr><th>Score</th><th>Platforma</th><th>Treść</th><th>Metrics</th><th>Status</th></tr>';
+  table.innerHTML = '<tr><th>Wynik</th><th>Platforma</th><th>Treść</th><th>Zaangażowanie</th><th>Status</th></tr>';
   candidates.forEach((candidate) => {
     const row = document.createElement('tr');
     const score = document.createElement('td'); score.textContent = String(candidate.finalScore ?? candidate.discoveryScore);
     const platform = document.createElement('td'); platform.textContent = `${candidate.platform} / ${candidate.language}`;
     const content = document.createElement('td'); content.textContent = clampText(candidate.text || candidate.sourceQuery, 120); appendExternalLink(content, candidate.sourceUrl);
-    const metrics = document.createElement('td'); metrics.textContent = `views ${candidate.metrics.views ?? '-'} · likes ${candidate.metrics.likes ?? '-'} · comments ${candidate.metrics.comments ?? candidate.metrics.replies ?? '-'}`;
+    const metrics = document.createElement('td'); metrics.textContent = `wyświetlenia ${candidate.metrics.views ?? '-'} · polubienia ${candidate.metrics.likes ?? '-'} · komentarze ${candidate.metrics.comments ?? candidate.metrics.replies ?? '-'}`;
     const status = document.createElement('td'); status.appendChild(createElement('span', getStatusClassName(candidate.enrichmentStatus), getStatusText(candidate.enrichmentStatus)));
     row.append(score, platform, content, metrics, status); table.appendChild(row);
   });
-  panel.appendChild(table);
+  const tableScroll = createElement('div', 'brain-table-scroll');
+  tableScroll.appendChild(table);
+  panel.appendChild(tableScroll);
   if (!candidates.length) panel.appendChild(createElement('div', 'empty-state', 'Brak wyników viral radar.'));
   tabContent.replaceChildren(panel);
 };
@@ -997,9 +1024,28 @@ const renderBrainsAnalysis = (run) => {
       );
       panel.appendChild(transcript);
     }
-    if (candidate.analysis) panel.appendChild(createElement('pre', 'source-block', JSON.stringify(candidate.analysis, null, 2)));
+    if (candidate.analysis) {
+      const analysis = candidate.analysis;
+      const result = createElement('div', 'brain-analysis-result');
+      result.append(
+        createElement('h2', null, analysis.topic || 'Wnioski z analizy'),
+        createElement('p', null, analysis.summary || ''),
+        createElement('p', 'brain-hook', `Hook: ${analysis.hook || '—'}`),
+      );
+      appendInsightList(result, 'Struktura', analysis.structure);
+      appendInsightList(result, 'Mechanizmy viralowe', analysis.viralMechanisms);
+      appendInsightList(result, 'Sygnały w komentarzach', analysis.commentThemes);
+      appendInsightList(result, 'Wnioski z transkrypcji', analysis.transcriptInsights);
+      appendInsightList(result, 'Pomysły do Genius@Content', analysis.adaptationIdeas);
+      appendInsightList(result, 'Ryzyka i niepewności', [...(analysis.risks || []), ...(analysis.uncertainties || [])]);
+      panel.appendChild(result);
+    } else {
+      panel.appendChild(createElement('p', 'empty-state', 'Ta treść czeka na analizę Codex.'));
+    }
     const comments = createElement('div', 'panel-body');
+    comments.appendChild(createElement('h3', null, `Komentarze · ${candidate.comments.length}`));
     candidate.comments.forEach((comment) => comments.appendChild(createElement('article', 'comment-row', `${comment.author || 'anon'} · ${comment.likes ?? 0} likes\n${comment.text}`)));
+    if (!candidate.comments.length) comments.appendChild(createElement('p', 'empty-state', 'Brak pobranych komentarzy.'));
     panel.appendChild(comments);
   }
   tabContent.replaceChildren(panel);
@@ -1007,15 +1053,18 @@ const renderBrainsAnalysis = (run) => {
 
 const renderBrainsTrends = (_run) => {
   const panel = createElement('section', 'panel pad');
-  panel.appendChild(createElement('div', 'panel-title', 'Trends / report'));
+  panel.appendChild(createElement('div', 'panel-title', 'Trendy i raporty'));
   state.brainsIntelligence.reports.forEach((report) => {
     const document = report.document || {};
     const synthesis = document.synthesis || {};
-    const article = createElement('article', 'node-row');
-    article.append(
-      createElement('div', 'node-title', `${report.type} · ${report.runId}`),
-      createElement('pre', 'source-block', JSON.stringify({topics: synthesis.recurringTopics || [], hooks: synthesis.recurringHooks || [], recommendations: synthesis.recommendations || []}, null, 2)),
-    );
+    const article = createElement('article', 'brain-report');
+    article.appendChild(createElement('h2', null, `Raport · ${report.runId}`));
+    appendInsightList(article, 'Powtarzające się tematy', synthesis.recurringTopics);
+    appendInsightList(article, 'Skuteczne otwarcia', synthesis.recurringHooks);
+    appendInsightList(article, 'Struktury', synthesis.recurringStructures);
+    appendInsightList(article, 'Wzorce w komentarzach', synthesis.commentPatterns);
+    appendInsightList(article, 'Różnice między platformami', synthesis.platformDifferences);
+    appendInsightList(article, 'Rekomendacje dla Genius@Content', synthesis.recommendations);
     panel.appendChild(article);
   });
   if (!state.brainsIntelligence.reports.length) panel.appendChild(createElement('div', 'empty-state', 'Brak raportu syntezy. Uruchom analizę Codex po crawl runie.'));
@@ -1353,7 +1402,7 @@ const render = () => {
   const inStudio = state.activeApp === 'content' && state.activeSubTab === 'studio';
   document.body.classList.toggle('motion-workspace', inStudio);
   document.body.classList.toggle('publisher-workspace', state.activeApp === 'scale');
-  document.querySelector('.run-sidebar').hidden = inStudio || state.activeApp === 'scale';
+  document.querySelector('.run-sidebar').hidden = inStudio || state.activeApp === 'scale' || (state.activeApp === 'brains' && !state.brainsIntelligence.runs.length);
   subTabs.hidden = true;
   const config = appConfig[state.activeApp];
   const fallbackNavigationState = getNavigationState(state);
@@ -1396,8 +1445,25 @@ const loadData = async () => {
 
 document.addEventListener('genius:navigate-publisher', event => {
   if (event.detail?.path) openStudioPublication(event.detail);
-  state.activeApp = 'scale'; state.activeSubTab = event.detail?.view || 'calendar'; state.activeNavigationItemId = 'scale-calendar';
+  const view = event.detail?.view || 'calendar';
+  const tab = {calendar: 'calendar', list: 'runs', library: 'assets', accounts: 'accounts'}[view] || 'calendar';
+  const item = navigationSections.find((section) => section.id === 'scale')?.items.find((entry) => entry.tab === tab);
+  state.activeApp = 'scale';
+  state.activeSubTab = tab;
+  state.activeNavigationItemId = item?.id || 'scale-calendar';
+  state.openNavSection = 'scale';
   render();
+});
+
+document.addEventListener('genius:publisher-view-changed', event => {
+  const tab = {calendar: 'calendar', list: 'runs', library: 'assets', accounts: 'accounts'}[event.detail?.view];
+  if (!tab || state.activeApp !== 'scale') return;
+  state.activeSubTab = tab;
+  state.activeNavigationItemId = navigationSections.find((section) => section.id === 'scale')?.items.find((item) => item.tab === tab)?.id || 'scale-calendar';
+  state.openNavSection = 'scale';
+  renderPrimaryNavigation();
+  activeKicker.textContent = 'Genius@Scale';
+  activeTitle.textContent = getNavigationItem(state.activeNavigationItemId)?.label || 'Publikacje';
 });
 
 loadData().catch((error) => {

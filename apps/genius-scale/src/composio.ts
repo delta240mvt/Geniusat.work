@@ -152,8 +152,10 @@ export class ComposioClient {
 }
 
 export const isPotentialPublishAction = (tool: ComposioTool): boolean => {
-  const text = `${tool.slug} ${tool.name ?? ''} ${tool.description ?? ''} ${tool.human_description ?? ''} ${(tool.tags ?? []).join(' ')}`.toLowerCase();
-  return /(publish|posting|post|upload|send|create)/.test(text) && !/(read|list|fetch|search|find|delete|remove|comment|like|follow|analytics|insight|metric)/.test(tool.slug.toLowerCase());
+  const slug = tool.slug.toLowerCase();
+  const publishesContent = /(?:^|[_-])(?:publish|post|upload)(?:$|[_-])/.test(slug)
+    || /(?:^|[_-])create[_-](?:tweet|reel|story|thread)(?:$|[_-])/.test(slug);
+  return publishesContent && !/(?:^|[_-])(?:read|list|fetch|search|find|delete|remove|comment|like|follow|message|campaign|advertisement|ads|analytics|insight|metric)(?:$|[_-])/.test(slug);
 };
 
 export const isContentToolkit = (toolkit: ComposioToolkit | undefined, tool: ComposioTool): boolean => {
@@ -182,6 +184,21 @@ export async function publishThroughComposio(input: {client: ComposioClient; cap
   if (built.missing.length) return {itemId: input.item.id, type: 'publish', status: 'blocked', createdAt, message: `publish_blocked: Composio action requires unsupported fields: ${built.missing.join(', ')}`, payload: built.arguments};
   try {
     const response = await input.client.execute(input.capability.actionSlug, input.connectionId, built.arguments);
+    if (response && typeof response === 'object' && !Array.isArray(response)) {
+      const result = response as Record<string, unknown>;
+      if (result.successful === false || result.success === false || result.isError === true || result.error) {
+        const detail = redactArtifactValue(result.error ?? result.message ?? 'The provider did not confirm publication.');
+        return {
+          itemId: input.item.id,
+          type: 'publish',
+          status: 'failed',
+          createdAt,
+          message: `Composio execution failed: ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`,
+          payload: built.arguments,
+          response: redactArtifactValue(response),
+        };
+      }
+    }
     return {itemId: input.item.id, type: 'publish', status: 'ok', createdAt, message: `Published through Composio action ${input.capability.actionSlug}.`, payload: built.arguments, response: redactArtifactValue(response)};
   } catch (error) {
     return {itemId: input.item.id, type: 'publish', status: 'failed', createdAt, message: error instanceof Error ? error.message : String(error), payload: built.arguments};

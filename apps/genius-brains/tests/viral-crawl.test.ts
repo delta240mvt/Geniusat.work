@@ -99,4 +99,29 @@ describe('viral crawl runner', () => {
     expect(result.candidates).toHaveLength(3);
     expect(result.errors).toContain('threads/pl:agenci AI: Threads PL unavailable');
   });
+
+  it('records a provider charge above its reserved estimate and stops further requests', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'genius-brains-crawl-'));
+    const repository = ViralBrainsRepository.inMemory();
+    let calls = 0;
+    const client: CrawlClient = {
+      ...fakeClient(),
+      searchInstagramReels: async () => {
+        calls += 1;
+        return {...post('instagram', 'expensive', 'https://instagram.com/reel/expensive'), credits_used: 95};
+      },
+      searchThreads: async () => {
+        calls += 1;
+        return post('threads', 'unreached', 'https://threads.net/post/unreached');
+      },
+    };
+    const result = await runViralCrawl({
+      config: config(), client, repository, dataRoot: root,
+      now: new Date('2026-09-20T12:00:00.000Z'), runId: 'run-overage',
+    });
+    expect(calls).toBe(1);
+    expect(result.budget.spentCredits).toBe(95);
+    expect(result.errors.join(' ')).toMatch(/Budget exceeded/);
+    expect(result.run.status).toBe('failed');
+  });
 });

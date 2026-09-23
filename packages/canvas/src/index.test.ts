@@ -67,6 +67,19 @@ test('createCanvasConfig derives package, analysis, and video roots from a works
   assert.equal(config.port, 4188);
 });
 
+test('dashboard follows the Genius@Brains data root used by the CLI', () => {
+  const prior = process.env.GENIUS_BRAINS_DATA_ROOT;
+  process.env.GENIUS_BRAINS_DATA_ROOT = path.join('C:', 'viral-data');
+  try {
+    const config = createCanvasConfig({workspaceRoot: 'C:\\repo'});
+    assert.equal(config.geniusBrainsDataRoot, path.resolve(process.env.GENIUS_BRAINS_DATA_ROOT));
+    assert.equal(createCanvasConfig({workspaceRoot: 'C:\\repo', geniusBrainsDataRoot: 'C:\\explicit'}).geniusBrainsDataRoot, path.resolve('C:\\explicit'));
+  } finally {
+    if (prior === undefined) delete process.env.GENIUS_BRAINS_DATA_ROOT;
+    else process.env.GENIUS_BRAINS_DATA_ROOT = prior;
+  }
+});
+
 test('listAnalysisEntries excludes raw analysis artifacts and sorts newest first', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'canvas-analysis-'));
 

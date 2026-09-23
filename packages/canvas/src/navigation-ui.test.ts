@@ -14,11 +14,16 @@ test('navigation maps important module views to expandable menu items', () => {
     navigationSections.map((section) => section.items.map((item) => item.id)),
     [
       ['brains-summary', 'brains-radar', 'brains-analysis', 'brains-trends'],
-      ['content-studio', 'content-flow', 'content-prompts', 'content-render'],
+      ['content-studio', 'content-ai-studio', 'content-flow', 'content-prompts', 'content-render'],
       ['scale-calendar', 'scale-history', 'scale-assets', 'scale-accounts'],
       ['settings-composio', 'settings-accounts', 'settings-hosting', 'settings-local'],
     ],
   );
+});
+
+test('AI Studio stays reachable as its own workspace view', () => {
+  const state = getNavigationState({activeApp: 'content', activeSubTab: 'flow', activeContentWorkspace: 'ai-studio'});
+  assert.equal(state.activeItem, 'content-ai-studio');
 });
 
 test('navigation state keeps only the active section open and maps current view', () => {

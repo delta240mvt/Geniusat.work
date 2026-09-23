@@ -13,7 +13,7 @@ import type {ContentHistoryEvent, ContentItem, ProjectConfig} from '../config/sc
 import {createThreadsClient, type ThreadsFetch} from '../threads/client.js';
 import {buildThreadsDryRunPayload} from '../threads/payload.js';
 import {publishContentItem} from '../threads/publish.js';
-import {loadWorkspaceEnv, resolveEnvSecret} from '../utils/env.js';
+import {composioUserId, loadWorkspaceEnv, resolveEnvSecret} from '../utils/env.js';
 import {ComposioClient, publishThroughComposio} from '../composio.js';
 
 export interface CliDependencies {
@@ -101,7 +101,7 @@ const requireOption = (options: CliOptions, key: keyof CliOptions, command: stri
 const composioClientFromEnv = (): ComposioClient => {
   const apiKey = resolveEnvSecret('COMPOSIO_API_KEY');
   if (!apiKey) throw new Error('Missing COMPOSIO_API_KEY.');
-  const userId = process.env.COMPOSIO_USER_ID?.trim() || 'genius-scale-local';
+  const userId = composioUserId();
   return new ComposioClient({apiKey, userId, baseUrl: process.env.COMPOSIO_BASE_URL});
 };
 

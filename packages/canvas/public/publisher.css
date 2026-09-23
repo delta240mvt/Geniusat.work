@@ -1061,7 +1061,6 @@
 .publisher-workspace .main {
   min-width: 0;
 }
-.publisher-workspace .topbar,
 .publisher-workspace .run-sidebar,
 .publisher-workspace #sub-tabs {
   display: none !important;

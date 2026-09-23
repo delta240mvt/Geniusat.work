@@ -363,7 +363,14 @@ function draw() {
   redrawPending = false;
   const connected = data.accounts.filter((a) => a.connected).length;
   const queued = data.posts.filter((p) => p.status === "scheduled").length;
-  root.innerHTML = `<section class="publisher"><header class="pub-heading"><div><div class="pub-eyebrow">GENIUS@WORK / PUBLIKACJE</div><h1>Plan publikacji</h1><p>Rolki, karuzele i posty. Wybierz materiał, konta i termin.</p></div><div class="pub-heading-actions"><button class="btn accent" id="pub-new">＋ Nowa publikacja</button><button class="pub-text-button" id="pub-connections">${connected ? `${connected} połączonych kont` : "○ Połącz pierwsze konto"} <span aria-hidden="true">↗</span></button></div></header>
+  const headings = {
+    calendar: ['Plan publikacji', 'Rolki, karuzele i posty. Wybierz materiał, konta i termin.'],
+    list: ['Historia', 'Przeglądaj szkice, zaplanowane i opublikowane treści.'],
+    library: ['Materiały', 'Wybierz pliki do publikacji.'],
+    accounts: ['Połączenia', 'Połącz platformy i zarządzaj kontami.'],
+  };
+  const [viewTitle, viewDescription] = headings[currentView] || headings.calendar;
+  root.innerHTML = `<section class="publisher"><header class="pub-heading"><div><div class="pub-eyebrow">GENIUS@WORK / PUBLIKACJE</div><h1>${viewTitle}</h1><p>${viewDescription}</p></div><div class="pub-heading-actions"><button class="btn accent" id="pub-new">＋ Nowa publikacja</button><button class="pub-text-button" id="pub-connections">${connected ? `${connected} połączonych kont` : "○ Połącz pierwsze konto"} <span aria-hidden="true">↗</span></button></div></header>
   <nav class="pub-tabs" aria-label="Publikacje">${[
     ["calendar", "Kalendarz"],
     ["list", `Kolejka${queued ? ` · ${queued}` : ""}`],
@@ -382,12 +389,14 @@ function draw() {
       (button.onclick = () => {
         currentView = button.dataset.view;
         draw();
+        document.dispatchEvent(new CustomEvent('genius:publisher-view-changed', {detail: {view: currentView}}));
       }),
   );
   root.querySelector("#pub-new").onclick = () => openComposer();
   root.querySelector("#pub-connections").onclick = () => {
     currentView = "accounts";
     draw();
+    document.dispatchEvent(new CustomEvent('genius:publisher-view-changed', {detail: {view: currentView}}));
   };
   root.querySelectorAll("[data-open-post]").forEach((button) => {
     button.onclick = () =>
@@ -592,11 +601,15 @@ async function renderComposioSettings(target) {
     target.innerHTML = `<span class="pub-eyebrow">COMPOSIO.DEV · GŁÓWNE POŁĄCZENIA</span><h2>Połącz aplikacje bez osobnych kont developerskich</h2><p>Łączenia OAuth i tokeny są przechowywane przez Composio. Poniżej pojawiają się wyłącznie wykryte akcje publikacyjne.</p>${catalog.configured ? rows || '<p class="pub-inline-result">Brak wykrytej akcji publikacyjnej w bieżącym katalogu.</p>' : `<p class="pub-inline-result">${esc(catalog.error || "Ustaw COMPOSIO_API_KEY w środowisku aplikacji.")}</p>`}`;
     target.querySelectorAll("[data-composio-connect]").forEach((button) => {
       button.onclick = async () => {
+        const popup = window.open('about:blank', '_blank');
+        if (popup) popup.opener = null;
         button.disabled = true;
         try {
           const result = await pubApi("composio/connect", {authConfigId: button.dataset.composioConnect});
-          window.open(result.redirectUrl, "_blank", "noopener,noreferrer");
+          if (popup) popup.location.replace(result.redirectUrl);
+          else window.location.assign(result.redirectUrl);
         } catch (error) {
+          popup?.close();
           toast(error.message, true);
         } finally {
           button.disabled = false;
@@ -1089,6 +1102,7 @@ function openComposer(initial = {}) {
       dialog.close();
       currentView = action === "draft" ? "list" : "calendar";
       await refresh();
+      document.dispatchEvent(new CustomEvent('genius:publisher-view-changed', {detail: {view: currentView}}));
       toast(
         action === "draft"
           ? "Szkic zapisany."

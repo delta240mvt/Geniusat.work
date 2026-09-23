@@ -51,6 +51,17 @@ export class BudgetLedger {
     this.spentCredits += actualCredits;
   }
 
+  recordProviderCharge(kind: string, actualCredits: number): boolean {
+    this.assertCredits(actualCredits);
+    const entries = this.reservations.get(kind);
+    if (!entries?.length) throw new Error(`No credit reservation for ${kind}.`);
+    const availableForThisCall = this.maxCredits - this.spentCredits - this.reserved() + entries[0];
+    entries.shift();
+    if (entries.length === 0) this.reservations.delete(kind);
+    this.spentCredits += actualCredits;
+    return actualCredits <= availableForThisCall;
+  }
+
   release(kind: string): void {
     const entries = this.reservations.get(kind) ?? [];
     entries.shift();
@@ -68,7 +79,7 @@ export class BudgetLedger {
   }
 
   remaining(): number {
-    return this.maxCredits - this.spentCredits - this.reserved();
+    return Math.max(0, this.maxCredits - this.spentCredits - this.reserved());
   }
 
   snapshot(): BudgetSnapshot {

@@ -2,7 +2,7 @@ import {createHash} from 'node:crypto';
 import {mkdir, writeFile} from 'node:fs/promises';
 import path from 'node:path';
 
-import {BudgetLedger} from './budget.js';
+import {BudgetExceededError, BudgetLedger} from './budget.js';
 import {parseViralIntelligenceConfig} from './config.js';
 import {ViralBrainsRepository} from './persistence.js';
 import {dedupeCandidates, rankCandidates} from './scoring.js';
@@ -56,7 +56,7 @@ export async function runViralCrawl(options: ViralCrawlOptions): Promise<ViralCr
   const categorySpent = {discovery: 0, instagram: 0, threads: 0};
   let discoveryCallIndex = 0;
 
-  for (const platform of ['instagram', 'threads'] as const) {
+  discovery: for (const platform of ['instagram', 'threads'] as const) {
     for (const language of ['en', 'pl'] as const) {
       for (const query of config.queries[platform][language]) {
         let cursor: string | undefined;
@@ -121,6 +121,7 @@ export async function runViralCrawl(options: ViralCrawlOptions): Promise<ViralCr
             page += 1;
           } catch (error) {
             errors.push(`${platform}/${language}:${query}: ${toErrorMessage(error)}`);
+            if (error instanceof BudgetExceededError) break discovery;
             cursor = undefined;
           }
         } while (cursor);
@@ -292,11 +293,15 @@ async function callProvider(options: {
   invoke: () => Promise<SocialCrawlEnvelope>;
 }): Promise<{body: SocialCrawlEnvelope; creditsUsed: number}> {
   options.ledger.reserve(options.category, options.estimate);
+  let chargedCredits: number | null = null;
+  let callRecorded = false;
   try {
     const body = await options.invoke();
-    await writeJson(options.rawPath, body);
     const creditsUsed = body.credits_used ?? options.estimate;
-    options.ledger.commit(options.category, creditsUsed);
+    const affordableCredits = options.ledger.remaining() + options.estimate;
+    const withinBudget = options.ledger.recordProviderCharge(options.category, creditsUsed);
+    chargedCredits = creditsUsed;
+    await writeJson(options.rawPath, body);
     options.repository.insertCall({
       runId: options.runId,
       variant: options.variant,
@@ -304,29 +309,33 @@ async function callProvider(options: {
       requestFingerprint: options.fingerprint,
       estimatedCost: options.estimate,
       actualCredits: creditsUsed,
-      status: 'ok',
+      status: withinBudget ? 'ok' : 'over_budget',
       requestId: body.request_id,
       rawPayloadPath: relativeArtifactPath(options.dataRoot, options.rawPath),
     });
+    callRecorded = true;
     options.repository.insertArtefact({
       runId: options.runId,
       kind: 'raw-provider-payload',
       path: relativeArtifactPath(options.dataRoot, options.rawPath),
       mediaType: 'application/json',
     });
+    if (!withinBudget) throw new BudgetExceededError(creditsUsed, affordableCredits);
     return {body, creditsUsed};
   } catch (error) {
-    options.ledger.release(options.category);
-    options.repository.insertCall({
-      runId: options.runId,
-      variant: options.variant,
-      endpoint: options.endpoint,
-      requestFingerprint: options.fingerprint,
-      estimatedCost: options.estimate,
-      actualCredits: 0,
-      status: 'failed',
-      error: toErrorMessage(error),
-    });
+    if (chargedCredits === null) options.ledger.release(options.category);
+    if (!callRecorded) {
+      options.repository.insertCall({
+        runId: options.runId,
+        variant: options.variant,
+        endpoint: options.endpoint,
+        requestFingerprint: options.fingerprint,
+        estimatedCost: options.estimate,
+        actualCredits: chargedCredits ?? 0,
+        status: 'failed',
+        error: toErrorMessage(error),
+      });
+    }
     throw error;
   }
 }

@@ -23,7 +23,7 @@ export const createCanvasConfig = (input: CanvasConfigInput = {}): CanvasConfig 
     input.scaleCalendarPath ?? path.join(workspaceRoot, 'apps', 'genius-scale', 'output', 'calendar.json'),
   );
   const geniusBrainsDataRoot = path.resolve(
-    input.geniusBrainsDataRoot ?? path.join(workspaceRoot, 'apps', 'genius-brains', 'output', 'viral'),
+    input.geniusBrainsDataRoot ?? (process.env.GENIUS_BRAINS_DATA_ROOT?.trim() || path.join(workspaceRoot, 'apps', 'genius-brains', 'output', 'viral')),
   );
 
   return {

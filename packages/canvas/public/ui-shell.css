@@ -294,6 +294,16 @@ summary:focus-visible {
   backdrop-filter: blur(16px);
 }
 
+.motion-workspace .topbar,
+.publisher-workspace .topbar {
+  display: flex;
+  position: sticky;
+}
+
+.publisher-workspace .pub-tabs {
+  display: none;
+}
+
 #active-kicker {
   color: var(--accent-strong);
   font-family: var(--mono);
@@ -330,6 +340,83 @@ summary:focus-visible {
   color: var(--muted);
 }
 
+.brain-stats {
+  margin-top: 18px;
+}
+
+.brain-stat-card {
+  display: grid;
+  gap: 9px;
+  padding: 18px;
+  border: 1px solid var(--rule);
+  border-radius: 11px;
+  background: var(--surface);
+}
+
+.brain-stat-card span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.brain-stat-card strong {
+  font-size: clamp(17px, 2vw, 24px);
+  line-height: 1.2;
+}
+
+.brain-table-scroll {
+  width: 100%;
+  margin-top: 16px;
+  overflow-x: auto;
+}
+
+.brain-table-scroll .table {
+  min-width: 670px;
+}
+
+.brain-analysis-result,
+.brain-report {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 18px;
+  border: 1px solid var(--rule);
+  border-radius: 11px;
+  background: var(--surface);
+}
+
+.brain-analysis-result h2,
+.brain-report h2,
+.brain-insight-section h3 {
+  margin: 0;
+}
+
+.brain-analysis-result p,
+.brain-report p {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.brain-hook {
+  color: var(--accent-strong);
+  font-weight: 650;
+}
+
+.brain-insight-section {
+  padding-top: 10px;
+  border-top: 1px solid var(--rule);
+}
+
+.brain-insight-section h3 {
+  font-size: 13px;
+}
+
+.brain-insight-section ul {
+  margin: 9px 0 0;
+  padding-left: 19px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
 @media (max-width: 900px) {
   .app {
     display: block;
@@ -343,6 +430,18 @@ summary:focus-visible {
     border-bottom: 1px solid var(--rule);
   }
 
+  .sidebar > .brand-block:first-child {
+    display: block;
+  }
+
+  .brand-title {
+    margin-top: 4px;
+  }
+
+  .brand-caption {
+    margin-top: 8px;
+  }
+
   .primary-nav {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
@@ -352,12 +451,20 @@ summary:focus-visible {
     display: none;
   }
 
-  .sidebar-footer,
-  .run-sidebar {
+  .sidebar-footer {
     display: none !important;
   }
 
   .topbar {
+    position: static;
+  }
+
+  .topbar .title-line {
+    display: inline;
+  }
+
+  .motion-workspace .topbar,
+  .publisher-workspace .topbar {
     position: static;
   }
 }

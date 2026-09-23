@@ -18,6 +18,7 @@ export const navigationSections = [
     icon: 'C',
     items: [
       {id: 'content-studio', label: 'Studio rolek', app: 'content', workspace: 'reels', tab: 'studio'},
+      {id: 'content-ai-studio', label: 'AI Studio', app: 'content', workspace: 'ai-studio', tab: 'flow'},
       {id: 'content-flow', label: 'Przepływ', app: 'content', workspace: 'reels', tab: 'flow'},
       {id: 'content-prompts', label: 'Scenariusze', app: 'content', workspace: 'reels', tab: 'prompts'},
       {id: 'content-render', label: 'Podgląd plików', app: 'content', workspace: 'reels', tab: 'render'},
@@ -49,8 +50,11 @@ export const navigationSections = [
   },
 ];
 
-export const getNavigationState = ({activeApp, activeSubTab}) => {
+export const getNavigationState = ({activeApp, activeSubTab, activeContentWorkspace}) => {
   const activeSection = navigationSections.find((section) => section.id === activeApp) || navigationSections[0];
+  if (activeApp === 'content' && activeContentWorkspace === 'ai-studio') {
+    return {openSection: 'content', activeItem: 'content-ai-studio'};
+  }
   const activeItem = activeSection.items.find((item) => item.tab === activeSubTab)?.id || activeSection.items[0].id;
   return {openSection: activeSection.id, activeItem};
 };
