@@ -1,4 +1,5 @@
-import { fileURLToPath } from "node:url";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -6,8 +7,16 @@ import { describe, expect, it } from "vitest";
 import { loadJobFromFile } from "../src/config/load-job.js";
 import { parseJob, jobSchema } from "../src/config/schema.js";
 
-const testDir = path.dirname(fileURLToPath(import.meta.url));
-const jobsDir = path.resolve(testDir, "../input/jobs");
+async function loadSyntheticJob(source: object) {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "brains-job-test-"));
+  const file = path.join(dir, "job.json");
+  try {
+    await writeFile(file, JSON.stringify({source}));
+    return await loadJobFromFile(file);
+  } finally {
+    await rm(dir, {recursive: true, force: true});
+  }
+}
 
 describe("jobSchema", () => {
   it("parses a video job and applies defaults", () => {
@@ -83,8 +92,8 @@ describe("jobSchema", () => {
 });
 
 describe("loadJobFromFile", () => {
-  it("loads and validates the sample video fixture", async () => {
-    const job = await loadJobFromFile(path.join(jobsDir, "sample-video.json"));
+  it("loads and validates a synthetic video job", async () => {
+    const job = await loadSyntheticJob({type: "video", videoId: "dQw4w9WgXcQ"});
 
     expect(job.source.type).toBe("video");
     if (job.source.type !== "video") {
@@ -93,8 +102,8 @@ describe("loadJobFromFile", () => {
     expect(job.source.videoId).toBe("dQw4w9WgXcQ");
   });
 
-  it("loads and validates the sample channel fixture", async () => {
-    const job = await loadJobFromFile(path.join(jobsDir, "sample-channel.json"));
+  it("loads and validates a synthetic channel job", async () => {
+    const job = await loadSyntheticJob({type: "channel", channelUrl: "https://www.youtube.com/@openai"});
 
     expect(job.source.type).toBe("channel");
     if (job.source.type !== "channel") {

@@ -32,7 +32,7 @@ Do not ask for extra planning when the user is simply sending links for processi
 ## Current entrypoints
 
 - `npm run check:youtube --workspace @genius/brains`
-- `npm run scrape --workspace @genius/brains -- --job-file ./input/jobs/sample-video.json`
+- `npm run scrape --workspace @genius/brains -- --job-file ./input/jobs/<your-local-job>.json`
 - `npm test --workspace @genius/brains`
 - `npm run typecheck --workspace @genius/brains`
 
@@ -64,7 +64,7 @@ Current default behavior:
 - `output.writeMarkdown = true`
 - `output.writeFlow = true`
 
-When changing schema defaults or output shape, update tests and sample jobs in the same change.
+When changing schema defaults or output shape, update tests and synthetic fixtures in the same change. Keep actual jobs under ignored `input/`.
 
 ## Output contract
 
@@ -114,6 +114,10 @@ For code changes in this module, run:
 - `npm run typecheck --workspace @genius/brains`
 
 If you change CLI behavior, schema, ranking, or artifact format, add or update tests first.
+
+## Git privacy
+
+The root `AGENTS.md` applies here. All of `input/` and `output/`, including `brains.sqlite`, job files, crawled posts, comments, transcripts, and analysis packs, stays outside Git. Build file-loading tests with synthetic files in a temporary directory. Do not add an ignore exception for a sample inside those directories.
 
 ## Non-goals
 

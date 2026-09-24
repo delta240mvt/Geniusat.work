@@ -59,30 +59,30 @@ tokens.json
 *.pfx
 .npmrc
 
-# Every user's recordings, scripts, exports and scraped data are local
-apps/*/input/**
-!apps/*/input/**/
-!apps/*/input/**/.gitkeep
-!apps/genius-brains/input/jobs/sample-channel.json
-!apps/genius-brains/input/jobs/sample-video.json
-!apps/genius-brains/input/linkedin-research.example.json
-!apps/genius-scale/input/content/sample-thread.json
-!apps/genius-scale/input/projects/sample-project.json
-apps/*/output/**
-!apps/*/output/.gitkeep
-apps/*/public/input/**
-!apps/*/public/input/.gitkeep
+# Every user's recordings, scripts, exports and scraped data are local.
+# Keep entire data directories private; test fixtures belong in tests/.
+apps/*/input/
+apps/*/output/
+apps/*/data/
+apps/*/reels/
+apps/*/public/input/
 apps/*/public/reels/
 apps/*/public/research/
-apps/*/reels/
 apps/genius-content/AI Studio/
 apps/genius-content/apps/
 apps/genius-content/src/reels/library-transcripts.json
+UIX/data/
 market_research/
 .firecrawl/
 .superpowers/
 template1_uix_CC/
 canvas-trace-preview.png
+
+# Generated design evidence, including frames from private recordings.
+docs/delta-rocket/**/*.png
+docs/delta-rocket/**/*.jpg
+docs/delta-rocket/**/*.jpeg
+docs/delta-rocket/**/geometry*.json
 
 # Recordings anywhere else in the workspace
 *.[mM][oO][vV]

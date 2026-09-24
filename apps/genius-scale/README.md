@@ -19,25 +19,25 @@ Publish a prepared item through an explicitly selected discovered action and
 connection:
 
 ```bash
-npm run publish --workspace @genius/scale -- --item <id> --project-file input/projects/sample-project.json --content-file input/content/sample-thread.json --provider composio --action-slug <ACTION_SLUG> --connection-id <ca_...>
+npm run publish --workspace @genius/scale -- --item <id> --project-file input/projects/<your-project>.json --content-file input/content/<your-content>.json --provider composio --action-slug <ACTION_SLUG> --connection-id <ca_...>
 ```
 
 The adapter validates the item status and required action inputs, stores a
 redacted run artifact, and never falls back silently to a native API.
 
-## Sample Inputs
+## Local inputs
 
-- Project config: `apps/genius-scale/input/projects/sample-project.json`
-- Content input: `apps/genius-scale/input/content/sample-thread.json`
+- Project config: create `apps/genius-scale/input/projects/<your-project>.json`
+- Content input: create `apps/genius-scale/input/content/<your-content>.json`
 
-The sample project keeps the Threads access token out of JSON by naming the environment variable in `platforms.threads.accessTokenEnv`.
+Keep the Threads access token out of JSON by naming its environment variable in `platforms.threads.accessTokenEnv`. All files under `input/` stay local and are not included in Git.
 
 ## Dry Run
 
-Run the sample through local validation without publishing:
+Run local input through validation without publishing:
 
 ```bash
-npm run dry-run --workspace @genius/scale -- -- --project-file input/projects/sample-project.json --content-file input/content/sample-thread.json
+npm run dry-run --workspace @genius/scale -- -- --project-file input/projects/<your-project>.json --content-file input/content/<your-content>.json
 ```
 
 Use `--output-root <path>` to write artifacts somewhere other than `apps/genius-scale/output`.
@@ -46,22 +46,22 @@ Dry-run accepts local-only media assets and writes diagnostics for missing `publ
 
 ## Publish
 
-The bundled sample is intentionally dry-run-only. Before using it for a real Threads publish, edit `input/projects/sample-project.json` to replace `THREADS_USER_ID_PLACEHOLDER`, set `THREADS_ACCESS_TOKEN` in your environment, and provide a public URL for every media asset in `input/content/sample-thread.json`.
+Before publishing to Threads, set `THREADS_ACCESS_TOKEN` in your environment, provide the actual Threads user ID in your local project file, and provide a public URL for every media asset in your local content file.
 
 Publish one prepared item by id after the project and media URLs are ready:
 
 ```bash
-npm run publish --workspace @genius/scale -- -- --item gaclight-sample-thread --project-file input/projects/sample-project.json --content-file input/content/sample-thread.json
+npm run publish --workspace @genius/scale -- -- --item <your-item-id> --project-file input/projects/<your-project>.json --content-file input/content/<your-content>.json
 ```
 
-`THREADS_USER_ID` is included in `.env.example` as an operator placeholder for local environment setup, but the current sample project JSON contains the actual `threadsUserId` field value to replace before publishing.
+`THREADS_USER_ID` is included in `.env.example` as an operator placeholder for local environment setup.
 
 ## Calendar Artifact
 
 Regenerate the calendar artifact directly:
 
 ```bash
-npm run calendar --workspace @genius/scale -- -- --project-file input/projects/sample-project.json --content-file input/content/sample-thread.json
+npm run calendar --workspace @genius/scale -- -- --project-file input/projects/<your-project>.json --content-file input/content/<your-content>.json
 ```
 
 The canvas calendar JSON is written to:

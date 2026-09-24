@@ -10,7 +10,7 @@ session. SQLite and filesystem artefacts retain the complete local history.
 
 - `npm run check:youtube --workspace @genius/brains`
   Validates the API key with a live YouTube Data API request.
-- `npm run scrape --workspace @genius/brains -- --job-file ./input/jobs/sample-video.json`
+- `npm run scrape --workspace @genius/brains -- --job-file ./input/jobs/<your-local-job>.json`
   Loads a job file and writes `job.json`, `videos.json`, `comments.raw.json`, `comments.scored.json`, `comments.md`, and `flow.md`.
 
 ## Viral intelligence
@@ -34,10 +34,10 @@ it, eligible media is recorded as unavailable instead of silently skipped.
 
 ## LinkedIn research controlled by Codex
 
-Ask Codex to create a JSON file following `input/linkedin-research.example.json`, then run:
+Ask Codex to create a local JSON config under the ignored `input/` directory, then run:
 
 ```bash
-npm run genius:brains -- linkedin-crawl --config ./apps/genius-brains/input/linkedin-research.example.json
+npm run genius:brains -- linkedin-crawl --config ./apps/genius-brains/input/linkedin-research.json
 npm run genius:brains -- analyze --run-id <linkedin-run-id>
 npm run genius:brains -- analyze --run-id <linkedin-run-id> --codex-output <codex-output.json>
 ```

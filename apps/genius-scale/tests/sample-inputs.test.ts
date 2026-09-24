@@ -1,15 +1,39 @@
-import {mkdtemp, readFile, stat} from 'node:fs/promises';
+import {mkdtemp, readFile, rm, stat, writeFile} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {fileURLToPath} from 'node:url';
-import {describe, expect, it} from 'vitest';
+import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {createScalePaths} from '../src/artifacts/paths.js';
 import {runCli} from '../src/cli/index.js';
 import {loadContentItemsFromFile, loadProjectFromFile} from '../src/config/loaders.js';
 
-const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const sampleProjectPath = path.join(packageRoot, 'input', 'projects', 'sample-project.json');
-const sampleContentPath = path.join(packageRoot, 'input', 'content', 'sample-thread.json');
+let fixtureRoot: string;
+let sampleProjectPath: string;
+let sampleContentPath: string;
+
+beforeAll(async () => {
+  fixtureRoot = await mkdtemp(path.join(os.tmpdir(), 'genius-scale-inputs-'));
+  sampleProjectPath = path.join(fixtureRoot, 'project.json');
+  sampleContentPath = path.join(fixtureRoot, 'content.json');
+  await writeFile(sampleProjectPath, JSON.stringify({
+    projectId: 'fixture-project', name: 'Synthetic project', timezone: 'Europe/Warsaw',
+    platforms: {threads: {threadsUserId: 'THREADS_USER_ID_PLACEHOLDER', accessTokenEnv: 'THREADS_ACCESS_TOKEN'}},
+  }));
+  await writeFile(sampleContentPath, JSON.stringify({
+    id: 'fixture-thread', projectId: 'fixture-project', title: 'Synthetic carousel',
+    body: 'Test-only content.', scheduledAt: '2026-04-27T09:00:00.000+02:00', status: 'ready',
+    source: {type: 'manual', path: 'synthetic/content.json'},
+    assets: [
+      {id: 'sample-cover', type: 'image', localPath: 'synthetic/cover.png', publicUrl: 'https://example.com/cover.png', altText: 'Synthetic cover'},
+      {id: 'sample-detail', type: 'image', localPath: 'synthetic/detail.png', altText: 'Synthetic detail'},
+    ],
+    platforms: {threads: {postType: 'carousel', replyControl: 'everyone', topicTag: 'Example'}},
+    history: [],
+  }));
+});
+
+afterAll(async () => {
+  if (fixtureRoot) await rm(fixtureRoot, {recursive: true, force: true});
+});
 
 const makeTempDir = () => mkdtemp(path.join(os.tmpdir(), 'genius-scale-samples-'));
 
@@ -18,8 +42,8 @@ const readJson = async (filePath: string) => JSON.parse(await readFile(filePath,
 describe('sample inputs', () => {
   it('loads and parses the sample project config', async () => {
     await expect(loadProjectFromFile(sampleProjectPath)).resolves.toMatchObject({
-      projectId: 'gaclight',
-      name: 'G@CLight',
+      projectId: 'fixture-project',
+      name: 'Synthetic project',
       timezone: 'Europe/Warsaw',
       platforms: {
         threads: {
@@ -35,8 +59,8 @@ describe('sample inputs', () => {
 
     expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({
-      id: 'gaclight-sample-thread',
-      projectId: 'gaclight',
+      id: 'fixture-thread',
+      projectId: 'fixture-project',
       platforms: {threads: {postType: 'carousel'}},
     });
     expect(items[0].assets).toEqual([
@@ -67,7 +91,7 @@ describe('sample inputs', () => {
     await expect(readJson(paths.calendarFile)).resolves.toMatchObject({
       entries: [
         {
-          id: 'gaclight-sample-thread',
+          id: 'fixture-thread',
           status: 'dry_run_ok',
           latestRun: {type: 'dry_run', status: 'ok'},
         },

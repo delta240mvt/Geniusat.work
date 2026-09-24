@@ -7,7 +7,7 @@ Included:
 - Extra Assets page placeholder
 - Shared CSS in `assets/styles.css`
 - Shared tiny JS in `assets/app.js`
-- Mock data in `data/sample-data.json`
+- Local mock data belongs in ignored `data/`
 - Design system notes in `design.md`
 
 This is a static prototype package based on the selected Rose Slate direction.
