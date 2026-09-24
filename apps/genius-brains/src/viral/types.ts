@@ -1,4 +1,4 @@
-export type ViralPlatform = 'instagram' | 'threads';
+export type ViralPlatform = 'instagram' | 'threads' | 'linkedin';
 export type ViralLanguage = 'en' | 'pl';
 export type ViralVariant = `${ViralPlatform}/${ViralLanguage}`;
 

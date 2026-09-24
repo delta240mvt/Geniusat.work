@@ -1,3 +1,6 @@
+import {createHash} from 'node:crypto';
+
+import type {LinkedInSearch} from './linkedin-config.js';
 import type {ViralCandidate, ViralPlatform, ViralLanguage} from './types.js';
 
 export interface SocialCrawlEnvelope<T = unknown> {
@@ -65,6 +68,23 @@ export class SocialCrawlClient {
     return this.request('/threads/post/comments', {url, ...(limit ? {limit: String(limit)} : {})});
   }
 
+  async searchLinkedInPosts(search: LinkedInSearch, page = 1, cursor?: string): Promise<SocialCrawlEnvelope> {
+    return this.request('/linkedin/search/posts', {
+      ...(search.query ? {query: search.query, relevance: 'filter'} : {}),
+      ...(search.datePosted ? {date_posted: search.datePosted} : {}),
+      ...(search.contentType ? {content_type: search.contentType} : {}),
+      ...(search.fromCompanyId ? {from_company: search.fromCompanyId} : {}),
+      ...(search.fromMemberUrn ? {from_member: search.fromMemberUrn} : {}),
+      ...(search.sortBy ? {sort_by: search.sortBy} : {}),
+      ...(cursor ? {cursor} : {page: String(page)}),
+    });
+  }
+
+  async getLinkedInComments(url: string): Promise<SocialCrawlEnvelope> {
+    const endpoint = linkedinCommentsEndpoint(url);
+    return this.request(endpoint, {url, ...(endpoint.includes('/post/') ? {sort_order: 'relevance'} : {}), page: '1'});
+  }
+
   private async request(path: string, params: Record<string, string>): Promise<SocialCrawlEnvelope> {
     const url = new URL(`${this.baseUrl}${path}`);
     url.search = new URLSearchParams(params).toString();
@@ -92,12 +112,21 @@ export class SocialCrawlError extends Error {
   }
 }
 
+export function linkedinCommentsEndpoint(value: string): '/linkedin/post/comments' | '/linkedin/article/comments' {
+  try {
+    if (/^\/pulse\//.test(new URL(value).pathname)) return '/linkedin/article/comments';
+  } catch {
+    // A malformed provider URL is rejected by the crawl's LinkedIn URL filter.
+  }
+  return '/linkedin/post/comments';
+}
+
 export function normalizeSearchItems(payload: unknown, context: DiscoveryContext): ViralCandidate[] {
   const items = readItems(payload);
   return items.flatMap((item) => {
     const post = readRecord(item.post) ?? readRecord(item);
-    const id = readString(post?.id);
-    const url = readString(post?.url);
+    const url = readString(post?.url) ?? readString(item.url);
+    const id = readString(post?.id) ?? (context.platform === 'linkedin' && url ? createHash('sha256').update(canonicalPostUrl(url)).digest('hex').slice(0, 24) : null);
     if (!id || !url) return [];
 
     const content = readRecord(post?.content);
@@ -119,7 +148,7 @@ export function normalizeSearchItems(payload: unknown, context: DiscoveryContext
       sourcePostId: id,
       sourceUrl: url,
       contentType: isInstagram ? 'reel' : isThreadVideo ? 'video' : 'post',
-      text: readString(content?.text) ?? readString(post?.text),
+      text: readString(content?.text) ?? readString(content?.description) ?? readString(post?.text) ?? readString(post?.description),
       mediaUrls,
       thumbnailUrl: readString(content?.thumbnail_url) ?? readString(post?.thumbnail_url),
       publishedAt: readString(post?.published_at) ?? readString(post?.created_at),
@@ -129,7 +158,7 @@ export function normalizeSearchItems(payload: unknown, context: DiscoveryContext
       },
       metrics: {
         views: readNumber(engagement?.views),
-        likes: readNumber(engagement?.likes),
+        likes: readNumber(engagement?.likes) ?? readNumber(engagement?.reactions),
         comments,
         replies: context.platform === 'threads' ? comments : readNumber(engagement?.replies),
         reposts: readNumber(engagement?.reposts) ?? readNumber(engagement?.reshares),
@@ -161,9 +190,9 @@ export function normalizeComments(payload: unknown): Array<{
     const engagement = readRecord(comment?.engagement);
     return [{
       platformCommentId: id,
-      author: readString(author?.username) ?? readString(author?.display_name),
+      author: readString(author?.username) ?? readString(author?.display_name) ?? readString(author?.name),
       text,
-      likes: readNumber(engagement?.likes),
+      likes: readNumber(engagement?.likes) ?? readNumber(engagement?.reactions),
       replies: readNumber(engagement?.replies) ?? readNumber(comment?.reply_count),
       parentId: readString(comment?.parent_id),
       publishedAt: readString(comment?.published_at),
@@ -213,4 +242,13 @@ function readMediaUrls(value: unknown): string[] {
 
 function isLikelyVideoUrl(value: string): boolean {
   return /\.(mp4|mov|m4v|webm)(?:$|[?#])/i.test(value);
+}
+
+function canonicalPostUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    return `${url.origin}${url.pathname.replace(/\/$/, '')}`;
+  } catch {
+    return value;
+  }
 }

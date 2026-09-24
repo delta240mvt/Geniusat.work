@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import {buildAnalysisPack, createAnalysisPrompt, isTranscriptEligible, parseCodexAnalysisDocument, type AnalysisPack, type CodexAnalysisDocument} from './analysis.js';
 import {DeepgramClient} from './deepgram.js';
+import {parseLinkedInCrawlConfig} from './linkedin-config.js';
 import {ViralBrainsRepository} from './persistence.js';
 import type {ViralCandidate} from './types.js';
 
@@ -12,6 +13,11 @@ export async function prepareAnalysisPack(options: {
   repository: ViralBrainsRepository;
 }): Promise<{pack: AnalysisPack; packPath: string; promptPath: string}> {
   const candidates = options.repository.listSelectedCandidates(options.runId);
+  const criteriaPath = path.join(options.dataRoot, options.runId, 'research-criteria.json');
+  const researchCriteria = await readFile(criteriaPath, 'utf8').then((value) => parseLinkedInCrawlConfig(JSON.parse(value))).catch((error: unknown) => {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') return undefined;
+    throw error;
+  });
   const pack = buildAnalysisPack({
     runId: options.runId,
     candidates,
@@ -20,6 +26,7 @@ export async function prepareAnalysisPack(options: {
       const transcript = options.repository.getTranscript(candidate.candidateId);
       return transcript ? [[candidate.candidateId, transcript]] : [];
     })),
+    researchCriteria,
   });
   const analysisRoot = path.join(options.dataRoot, options.runId, 'analysis');
   await mkdir(analysisRoot, {recursive: true});

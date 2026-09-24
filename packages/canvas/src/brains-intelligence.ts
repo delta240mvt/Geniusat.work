@@ -12,7 +12,7 @@ export async function readViralBrainsDashboard(dataRoot: string): Promise<ViralB
 
   const database = new DatabaseSync(databasePath);
   try {
-    const runs = (database.prepare('SELECT id, status, analysis_status, started_at, finished_at, spent_credits, error_summary FROM runs ORDER BY created_at DESC').all() as Record<string, unknown>[]).map((row) => ({
+    const runs = await Promise.all((database.prepare('SELECT id, status, analysis_status, started_at, finished_at, spent_credits, error_summary FROM runs ORDER BY created_at DESC').all() as Record<string, unknown>[]).map(async (row) => ({
       id: String(row.id),
       status: String(row.status),
       analysisStatus: String(row.analysis_status),
@@ -20,7 +20,8 @@ export async function readViralBrainsDashboard(dataRoot: string): Promise<ViralB
       finishedAt: row.finished_at ? String(row.finished_at) : null,
       spentCredits: Number(row.spent_credits ?? 0),
       errorSummary: row.error_summary ? String(row.error_summary) : null,
-    }));
+      researchCriteria: await readJsonIfExists(path.join(dataRoot, String(row.id), 'research-criteria.json')),
+    })));
     const candidates: ViralBrainsDashboard['candidates'] = (database.prepare('SELECT * FROM candidates ORDER BY discovery_score DESC').all() as Record<string, unknown>[]).map((row) => ({
       id: String(row.id),
       runId: String(row.run_id),

@@ -30,6 +30,7 @@ export interface ViralBrainsDashboard {
     finishedAt: string | null;
     spentCredits: number;
     errorSummary: string | null;
+    researchCriteria: Record<string, unknown> | null;
   }>;
   candidates: Array<{
     id: string;

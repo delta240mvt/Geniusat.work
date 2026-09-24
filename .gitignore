@@ -65,6 +65,7 @@ apps/*/input/**
 !apps/*/input/**/.gitkeep
 !apps/genius-brains/input/jobs/sample-channel.json
 !apps/genius-brains/input/jobs/sample-video.json
+!apps/genius-brains/input/linkedin-research.example.json
 !apps/genius-scale/input/content/sample-thread.json
 !apps/genius-scale/input/projects/sample-project.json
 apps/*/output/**

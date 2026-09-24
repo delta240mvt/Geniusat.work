@@ -28,6 +28,7 @@ import { runViralCommand } from "../viral/cli.js";
 const HELP_TEXT = [
   "Usage:",
   "  genius-brains crawl --config <path>",
+  "  genius-brains linkedin-crawl --config <path> [--run-id <id>]",
   "  genius-brains analyze --run-id <id> [--codex-output <path>]",
   "  genius-brains report --run-id <id>",
   "  genius-brains list-runs",
@@ -40,6 +41,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<st
 
   switch (command) {
     case "crawl":
+    case "linkedin-crawl":
     case "analyze":
     case "report":
     case "list-runs":

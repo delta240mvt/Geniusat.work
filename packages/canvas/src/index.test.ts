@@ -666,9 +666,11 @@ test('viral dashboard read model exposes persisted comments, transcripts and ana
   await writeFile(path.join(root, 'run-1', 'analysis', 'items', 'instagram-1.json'), JSON.stringify({summary: 'Specific workflow.'}), 'utf8');
   await mkdir(path.join(root, 'run-1', 'reports'), {recursive: true});
   await writeFile(path.join(root, 'run-1', 'reports', 'report.json'), JSON.stringify({synthesis: {recommendations: ['Show the workflow.']}}), 'utf8');
+  await writeFile(path.join(root, 'run-1', 'research-criteria.json'), JSON.stringify({analysisFocus: 'Find recurring AI patterns', searches: [{query: 'AI agents'}], filters: {minLikes: 20}}), 'utf8');
 
   const dashboard = await readViralBrainsDashboard(root);
   assert.equal(dashboard.runs[0].id, 'run-1');
+  assert.equal(dashboard.runs[0].researchCriteria?.analysisFocus, 'Find recurring AI patterns');
   assert.equal(dashboard.candidates[0].transcript?.confidence, 0.94);
   assert.equal(dashboard.candidates[0].comments[0].text, 'How did you build it?');
   assert.equal(dashboard.candidates[0].analysis?.summary, 'Specific workflow.');

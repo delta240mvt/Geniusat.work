@@ -5,6 +5,8 @@ import {parseViralIntelligenceConfig} from './config.js';
 import {DeepgramClient} from './deepgram.js';
 import {prepareAnalysisPack, recordTranscriptionUnavailable, transcribeSelectedCandidates, ingestCodexAnalysis} from './analysis-runner.js';
 import {runViralCrawl} from './crawl.js';
+import {parseLinkedInCrawlConfig} from './linkedin-config.js';
+import {runLinkedInCrawl} from './linkedin-crawl.js';
 import {ViralBrainsRepository} from './persistence.js';
 import {SocialCrawlClient} from './socialcrawl.js';
 
@@ -12,6 +14,8 @@ export async function runViralCommand(command: string, argv: string[]): Promise<
   switch (command) {
     case 'crawl':
       return runCrawlCommand(argv);
+    case 'linkedin-crawl':
+      return runLinkedInCrawlCommand(argv);
     case 'analyze':
       return runAnalyzeCommand(argv);
     case 'report':
@@ -20,6 +24,28 @@ export async function runViralCommand(command: string, argv: string[]): Promise<
       return runListRunsCommand();
     default:
       throw new Error(`Unknown Genius@Brains viral command: ${command}`);
+  }
+}
+
+async function runLinkedInCrawlCommand(argv: string[]): Promise<string> {
+  const configPath = requireOption(argv, '--config');
+  const config = parseLinkedInCrawlConfig(JSON.parse(await readFile(configPath, 'utf8')));
+  const apiKey = requireEnv('SOCIALCRAWL_API_KEY');
+  const dataRoot = resolveDataRoot();
+  await mkdir(dataRoot, {recursive: true});
+  const repository = openRepository(dataRoot);
+  try {
+    const runId = readOption(argv, '--run-id') ?? `linkedin-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+    const result = await runLinkedInCrawl({
+      config,
+      client: new SocialCrawlClient({apiKey}),
+      repository,
+      dataRoot,
+      runId,
+    });
+    return JSON.stringify({runId, status: result.run.status, candidates: result.candidates.length, filteredOut: result.filteredOut, budget: result.budget, errors: result.errors}, null, 2);
+  } finally {
+    repository.close();
   }
 }
 

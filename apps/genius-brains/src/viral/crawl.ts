@@ -10,6 +10,7 @@ import {
   normalizeComments,
   normalizePostMetrics,
   normalizeSearchItems,
+  SocialCrawlError,
   type SocialCrawlEnvelope,
 } from './socialcrawl.js';
 import type {ViralCandidate, ViralIntelligenceConfig, ViralRun} from './types.js';
@@ -279,7 +280,7 @@ async function enrichThreadsCandidate(
   }
 }
 
-async function callProvider(options: {
+export async function callProvider(options: {
   ledger: BudgetLedger;
   repository: ViralBrainsRepository;
   runId: string;
@@ -323,6 +324,17 @@ async function callProvider(options: {
     if (!withinBudget) throw new BudgetExceededError(creditsUsed, affordableCredits);
     return {body, creditsUsed};
   } catch (error) {
+    let reportedOverage: BudgetExceededError | null = null;
+    if (chargedCredits === null && error instanceof SocialCrawlError) {
+      const body = error.responseBody;
+      const reported = body && typeof body === 'object' && 'credits_used' in body ? body.credits_used : null;
+      if (typeof reported === 'number' && Number.isFinite(reported) && reported >= 0) {
+        const affordable = options.ledger.remaining() + options.estimate;
+        const withinBudget = options.ledger.recordProviderCharge(options.category, reported);
+        chargedCredits = reported;
+        if (!withinBudget) reportedOverage = new BudgetExceededError(reported, affordable);
+      }
+    }
     if (chargedCredits === null) options.ledger.release(options.category);
     if (!callRecorded) {
       options.repository.insertCall({
@@ -336,7 +348,7 @@ async function callProvider(options: {
         error: toErrorMessage(error),
       });
     }
-    throw error;
+    throw reportedOverage ?? error;
   }
 }
 

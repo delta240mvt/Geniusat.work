@@ -962,6 +962,24 @@ const renderBrainsSummary = (run) => {
       grid.appendChild(card);
     });
   panel.appendChild(grid);
+  const criteria = selected?.researchCriteria;
+  if (criteria && typeof criteria.analysisFocus === 'string') {
+    const research = createElement('section', 'brain-analysis-result');
+    research.append(
+      createElement('h2', null, 'Cel badania LinkedIn'),
+      createElement('p', null, criteria.analysisFocus),
+    );
+    const searches = Array.isArray(criteria.searches) ? criteria.searches.map((search) => search.query || search.fromMemberUrn || search.fromCompanyId).filter(Boolean) : [];
+    appendInsightList(research, 'Zapytania i źródła', searches);
+    const filters = criteria.filters || {};
+    const thresholds = [
+      filters.minLikes !== undefined ? `Min. polubień: ${filters.minLikes}` : null,
+      filters.minComments !== undefined ? `Min. komentarzy: ${filters.minComments}` : null,
+      Array.isArray(filters.anyKeywords) && filters.anyKeywords.length ? `Słowa: ${filters.anyKeywords.join(', ')}` : null,
+    ].filter(Boolean);
+    appendInsightList(research, 'Filtry', thresholds);
+    panel.appendChild(research);
+  }
   if (selected?.errorSummary) panel.appendChild(createElement('pre', 'source-block', selected.errorSummary));
   tabContent.replaceChildren(panel);
 };

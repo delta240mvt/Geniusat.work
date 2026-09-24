@@ -1,0 +1,25 @@
+{
+  "analysisFocus": "Find recurring structures in public LinkedIn posts about practical AI-agent deployments, with attention to audience questions in comments.",
+  "searches": [
+    {
+      "query": "AI agents case study",
+      "language": "en",
+      "datePosted": "past_month",
+      "sortBy": "relevance",
+      "maxPages": 2
+    },
+    {
+      "query": "agenci AI wdrożenie",
+      "language": "pl",
+      "datePosted": "past_month",
+      "maxPages": 2
+    }
+  ],
+  "filters": {
+    "minLikes": 20,
+    "minComments": 3,
+    "anyKeywords": ["AI", "agent"],
+    "excludeKeywords": []
+  },
+  "maxCommentPosts": 5
+}

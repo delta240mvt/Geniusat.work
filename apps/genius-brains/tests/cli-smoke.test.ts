@@ -9,6 +9,12 @@ afterEach(() => {
 });
 
 describe("runCli", () => {
+  it("exposes LinkedIn research as a config-driven command", async () => {
+    const {runCli} = await import("../src/cli/index.js");
+    await expect(runCli([])).resolves.toContain("linkedin-crawl --config <path>");
+    await expect(runCli(["linkedin-crawl"])).rejects.toThrow("--config is required");
+  });
+
   it("checks YouTube client wiring from the CLI", async () => {
     const createYouTubeClient = vi.fn(() => ({
       get: vi.fn(async () => ({

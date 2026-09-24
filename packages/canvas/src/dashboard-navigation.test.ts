@@ -16,7 +16,7 @@ test('sidebar opens publisher connections and keeps module navigation in sync', 
   window.HTMLElement.prototype.scrollIntoView = function () { scrolledTo = this.id; };
   const originalFetch = globalThis.fetch;
   const brainsDashboard = {
-    runs: [{id: 'run-1', status: 'complete', analysisStatus: 'complete', startedAt: '2026-09-20T10:00:00.000Z', spentCredits: 18}],
+    runs: [{id: 'run-1', status: 'complete', analysisStatus: 'complete', startedAt: '2026-09-20T10:00:00.000Z', spentCredits: 18, researchCriteria: {analysisFocus: 'Find AI patterns', searches: [{query: 'AI agents'}], filters: {minLikes: 20}}}],
     candidates: [{
       id: 'instagram:1', runId: 'run-1', platform: 'instagram', language: 'pl', sourceQuery: 'AI',
       sourceUrl: 'https://instagram.com/reel/1', text: 'Treść o AI', discoveryScore: 82,
@@ -85,6 +85,7 @@ test('sidebar opens publisher connections and keeps module navigation in sync', 
     window.document.querySelector<HTMLButtonElement>('#nav-brains')!.click();
     window.document.querySelector<HTMLButtonElement>('#nav-brains-summary')!.click();
     assert.match(window.document.querySelector('#tab-content')?.textContent || '', /Kredyty SocialCrawl/);
+    assert.match(window.document.querySelector('#tab-content')?.textContent || '', /Find AI patterns/);
     window.document.querySelector<HTMLButtonElement>('#nav-brains-analysis')!.click();
     assert.match(window.document.querySelector('#tab-content')?.textContent || '', /Konkretny przykład/);
     assert.match(window.document.querySelector('#tab-content')?.textContent || '', /Działa!/);
