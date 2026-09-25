@@ -1,7 +1,9 @@
 import {describe,it,expect} from 'vitest';
-import {captionPages,cutWords,createReel,graphicForText,normalizeWords,reelFrames,reelSchema} from '../src/reels/model';
+import {captionPages,cutWords,createReel,defaultSceneMotion,graphicForText,normalizeWords,reelFrames,reelSchema} from '../src/reels/model';
 import {exampleReels} from './fixtures/reels';
 import {frameMarkup} from '../src/reels/visual';
+import {safeFrameMarkup} from '../src/reels/safe-visual';
+import {captionMotionMarkup} from '../src/reels/text-motion';
 
 describe('GENIUS@WORK reels',()=>{
   it('allows only Hyperframes for new project settings',()=>{
@@ -64,6 +66,68 @@ describe('GENIUS@WORK reels',()=>{
     ]});
     expect(reel.scenes.map(s=>[s.start,s.end])).toEqual([[0,5],[5,11]]);
     expect(reelFrames(reel)).toBe(330);
+  });
+  it('replaces captions in one position and honors a timing offset',()=>{
+    const motion=defaultSceneMotion().caption;
+    motion.preset='replace';motion.lagMs=200;motion.holdMs=100;
+    const words=[{word:'raz',startMs:0,endMs:500},{word:'dwa',startMs:500,endMs:1000}];
+    expect(captionMotionMarkup(words,100,motion,s=>s)).toBe('');
+    expect(captionMotionMarkup(words,550,motion,s=>s)).toContain('raz');
+    expect(captionMotionMarkup(words,750,motion,s=>s)).toContain('dwa');
+    expect(captionMotionMarkup(words,750,motion,s=>s)).not.toContain('raz');
+  });
+  it('limits the spoken-word stack and removes shadows from cutaway captions',()=>{
+    const words=[{word:'pierwsze',startMs:0,endMs:200},{word:'drugie',startMs:200,endMs:400},
+      {word:'trzecie',startMs:400,endMs:600},{word:'czwarte',startMs:600,endMs:800}];
+    const motion=defaultSceneMotion(true).caption;
+    motion.preset='stack';
+    const stacked=captionMotionMarkup(words,550,motion,s=>s);
+    expect(stacked).toContain('pierwsze');
+    expect(stacked).toContain('drugie');
+    expect(stacked).toContain('trzecie');
+    expect(captionMotionMarkup(words,700,motion,s=>s)).toContain('czwarte');
+    expect(captionMotionMarkup(words,700,motion,s=>s)).not.toContain('drugie');
+    const reel=exampleReels()[0];
+    reel.motionConcept='interface';
+    reel.scenes[0].overlayOnly=true;
+    reel.scenes[0].cutaway=true;
+    reel.scenes[0].motion={...defaultSceneMotion(true),caption:{...motion,preset:'replace',shadowBlur:0}};
+    const html=safeFrameMarkup(reel,.5);
+    expect(html).toContain('d240-safe-window-mode d240-safe-cutaway');
+    expect(html).toContain('text-shadow:none');
+  });
+  it('cuts brand cards on word starts and replaces each word without animation',()=>{
+    const reel=exampleReels()[0];
+    reel.motionConcept='interface';
+    reel.brandCards=[{startMs:500,endMs:1500}];
+    reel.scenes[0].overlayOnly=true;
+    reel.scenes[0].motion={...defaultSceneMotion(true),caption:{...defaultSceneMotion(true).caption,
+      font:'delta240mvt',preset:'stack',size:120,tracking:-10.2,y:1300}};
+    expect(reelSchema.safeParse(reel).success).toBe(true);
+    const card=safeFrameMarkup(reel,.75);
+    expect(card).toContain('d240-safe-brand-card');
+    expect(card).toContain('<span class="active">jest</span>');
+    expect(card).toContain('top:875px');
+    expect(card).toContain('text-shadow:none');
+    expect(safeFrameMarkup(reel,1.25)).toContain('<span class="active">przykładowy</span>');
+    expect(safeFrameMarkup(reel,1.5)).not.toContain('d240-safe-brand-card');
+    expect(reelSchema.safeParse({...reel,brandCards:[{startMs:600,endMs:1500}]}).success).toBe(false);
+  });
+  it('keeps window timing inside its scene and renders text motion deterministically',()=>{
+    const reel=exampleReels()[0];
+    const motion=defaultSceneMotion();
+    motion.windows=[{id:'window-1',kind:'finder',title:'Finder',content:'Folder',x:100,y:300,width:700,height:420,
+      startMs:0,endMs:1000,enterMs:300,exitMs:200,enter:'pop',exit:'fade',easing:'ease-out',travelPx:80,scaleFrom:.9,
+      lineDelayMs:260,contentSize:18,radius:28,blur:.25,shadowIntensity:.45,edgeOpacity:.5,edgeFeather:.55,
+      displacement:50,saturation:140,aberration:2}];
+    reel.scenes[0].motion=motion;
+    const checked=reelSchema.parse(reel);
+    const first=frameMarkup(checked,.4);
+    expect(first).toContain('font-family:delta240mvt_font');
+    frameMarkup(checked,2);frameMarkup(checked,.1);
+    expect(frameMarkup(checked,.4)).toBe(first);
+    const invalidScenes = [{...reel.scenes[0],motion:{...motion,windows:[{...motion.windows[0],endMs:999999}]}},...reel.scenes.slice(1)];
+    expect(reelSchema.safeParse({...reel,scenes:invalidScenes}).success).toBe(false);
   });
   it('handles repeated and unordered segment timestamps without zero-length scenes',()=>{
     const reel=createReel({id:'test',sourceId:'test',sourceFile:'test.mp4',title:'Tytuł',duration:8,speech:[

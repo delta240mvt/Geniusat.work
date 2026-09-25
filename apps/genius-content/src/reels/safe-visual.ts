@@ -1,4 +1,5 @@
-import {BRAND, captionPages, reelDuration, type Reel, type ReelScene} from './model';
+import {BRAND, brandCardAt, captionPages, reelDuration, type Reel, type ReelScene} from './model';
+import {captionMotionMarkup, textEntryStyle} from './text-motion';
 
 export const SAFE_CSS = `
 .d240-stage.d240-full .d240-video{left:0!important;top:0!important;width:1080px!important;height:1920px!important;object-position:center!important}
@@ -7,6 +8,20 @@ export const SAFE_CSS = `
 .safe-art{position:absolute;left:24px;top:824px;width:712px;height:270px;filter:drop-shadow(0 8px 9px #02030480)}
 .safe-captions{position:absolute;left:24px;bottom:40px;width:712px;height:112px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:42px;font-weight:800;line-height:1.2;letter-spacing:-.025em;text-shadow:0 2px 3px #020304,0 3px 10px #020304}
 .safe-captions span{display:inline-block}.safe-captions .active{color:var(--accent)}
+.safe-captions .motion-words{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;column-gap:11px;row-gap:14px}.safe-captions .motion-words span{white-space:nowrap}
+.safe-captions .motion-stack{flex-direction:column;flex-wrap:nowrap;gap:9px;width:100%}
+.d240-safe-window-mode .safe-title,.d240-safe-window-mode .safe-art{visibility:hidden}
+.d240-safe-cutaway .safe-captions{color:#12213a;text-shadow:none}
+.d240-safe-cutaway .safe-captions .active{color:#12213a}
+.d240-safe-transcript{left:0;top:0;width:1080px;height:1920px;overflow:visible;contain:none}
+.d240-safe-transcript .safe-captions{left:96px;width:888px;height:170px;bottom:auto;padding:0;color:#F8F7F3;font-weight:700;line-height:.805;letter-spacing:-.085em;text-shadow:0 12px 34px #02030491,0 24px 64px #02030457}
+.d240-safe-transcript .safe-captions .active{color:inherit}
+.d240-safe-transcript .motion-words{width:100%;gap:0}
+.d240-safe-transcript .motion-stack{align-self:flex-start;gap:20px}
+.d240-safe-transcript .motion-words span{margin:0;line-height:.805}
+.d240-safe-transcript.d240-safe-cutaway .safe-captions{color:#020304;text-shadow:none}
+.d240-safe-brand-card{background:#00D6D8}
+.d240-safe-brand-card .safe-captions{top:875px!important;line-height:.805;color:#020304;text-shadow:none}
 `;
 const esc = (s: string) => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 const ease = (n: number) => 1 - (1 - Math.max(0, Math.min(1,n))) ** 3;
@@ -53,13 +68,18 @@ function metaphorArt(kind:ReelScene['graphic'],p:number):string {
 export function safeFrameMarkup(reel:Reel,time:number):string {
   const t=Math.max(0,Math.min(time,reelDuration(reel)-1/30));
   const scene=reel.scenes.find(s=>t>=s.start&&t<s.end)??reel.scenes[0];
+  const brandCard=brandCardAt(reel,t*1000);
   const local=t-scene.start, duration=scene.end-scene.start;
+  const windowMode=scene.overlayOnly || scene.cutaway || scene.motion?.windows.some(window=>window.kind!=='glass'&&local*1000>=window.startMs&&local*1000<window.endMs);
   const p=Math.max(0,Math.min(1,local/duration));
   const entry=ease(local/.35), exit=ease((duration-local)/.25);
   const morph=ease((p-.3)/.35);
   const title=titleLayout(scene.title);
   const pages=captionPages(reel.words);
-  const page=pages.find((words,i)=>t*1000>=words[0].startMs&&t*1000<Math.min(words.at(-1)!.endMs+180,pages[i+1]?.[0].startMs??Infinity));
+  const captionLag=scene.motion?.caption.lagMs??0;
+  const captionHold=scene.motion?.caption.holdMs??0;
+  const page=pages.find((words,i)=>t*1000>=words[0].startMs+captionLag&&t*1000<Math.min(words.at(-1)!.endMs+captionLag+Math.max(scene.motion?.caption.preset === 'stack' ? 270 : 180,captionHold),(pages[i+1]?.[0].startMs??Infinity)+captionLag));
+  const cardWord=brandCard && reel.words.filter(word => word.startMs >= brandCard.startMs && word.startMs < brandCard.endMs && word.startMs <= t*1000).at(-1);
   const concept=reel.motionConcept!;
   const art=concept==='interface'?interfaceArt(scene.graphic,p):concept==='metaphor'?metaphorArt(scene.graphic,p):`<g opacity="${1-morph}" transform="translate(${-55*morph} 0) scale(${1-morph*.08})">${interfaceArt(scene.graphic,p)}</g><g opacity="${morph}" transform="translate(${20*(1-morph)} 0)">${metaphorArt(scene.graphic,p)}</g>`;
   const captionLines=page?[page]:[];
@@ -72,6 +92,21 @@ export function safeFrameMarkup(reel:Reel,time:number):string {
   const longest=Math.max(1,...captionLines.map(words=>words.map(w=>w.word).join(' ').length));
   const captionSize=Math.min(42,Math.floor(680/(longest*1.05)));
   const captionHtml=captionLines.map(words=>words.map(w=>`<span class="${t*1000>=w.startMs&&t*1000<w.endMs?'active':''}">${esc(w.word)}</span>`).join(' ')).join('<br>');
-  return `<div class="d240-safe" data-concept="${concept}" style="--accent:${BRAND[scene.accent]}"><h1 class="safe-title" style="font-size:${title.size}px;opacity:${entry};transform:translateY(${12*(1-entry)}px)">${title.text}</h1><svg class="safe-art" viewBox="0 0 712 270" aria-hidden="true" style="opacity:${entry*exit}"><g transform="translate(0 ${12*(1-entry)})">${art}</g></svg>${page?`<div class="safe-captions" style="font-size:${captionSize}px"><div>${captionHtml}</div></div>`:''}</div>`;
+  const titleMotion=scene.motion?.title;
+  const captionMotion=scene.motion?.caption;
+  const stackFade=page && captionMotion?.preset === 'stack'
+    ? Math.max(0,Math.min(1,(page.at(-1)!.endMs+captionLag+270-t*1000)/270)) : 1;
+  const titleStyle=titleMotion
+    ? `top:${titleMotion.y-300}px;font-size:${titleMotion.size}px;font-family:${titleMotion.font === 'delta240mvt' ? 'delta240mvt_font' : 'Inter'};letter-spacing:${titleMotion.tracking}px;text-shadow:0 5px ${titleMotion.shadowBlur}px #020304b0;${textEntryStyle(titleMotion,local*1000-titleMotion.lagMs)}`
+    : `font-size:${title.size}px;opacity:${entry};transform:translateY(${12*(1-entry)}px)`;
+  const captionStyle=captionMotion
+    ? `top:${brandCard ? 875 : scene.overlayOnly ? captionMotion.y : captionMotion.y-300}px;bottom:auto;height:${captionMotion.preset === 'stack' ? 360 : 170}px;font-size:${captionMotion.size}px;font-family:${captionMotion.font === 'delta240mvt' ? 'delta240mvt_font' : 'Inter'};letter-spacing:${captionMotion.tracking}px;opacity:${stackFade.toFixed(4)};text-shadow:${scene.cutaway || brandCard ? 'none' : `0 12px ${captionMotion.shadowBlur}px #02030491,0 24px ${Math.min(80,captionMotion.shadowBlur*2)}px #02030457`}`
+    : `font-size:${captionSize}px`;
+  const animatedCaption=brandCard
+    ? `<div class="motion-words">${cardWord ? `<span class="active">${esc(cardWord.word.toLowerCase())}</span>` : ''}</div>`
+    : captionMotion&&page
+    ? `<div class="motion-words${captionMotion.preset === 'stack' ? ' motion-stack' : ''}">${captionMotionMarkup(page,t*1000,captionMotion,word=>esc(word.toLowerCase()))}</div>`
+    : `<div>${captionHtml}</div>`;
+  return `<div class="d240-safe${scene.overlayOnly?' d240-safe-transcript':''}${windowMode?' d240-safe-window-mode':''}${scene.cutaway?' d240-safe-cutaway':''}${brandCard?' d240-safe-brand-card':''}" data-concept="${concept}" style="--accent:${BRAND[scene.accent]}"><h1 class="safe-title" style="${titleStyle}">${title.text}</h1><svg class="safe-art" viewBox="0 0 712 270" aria-hidden="true" style="opacity:${entry*exit}"><g transform="translate(0 ${12*(1-entry)})">${art}</g></svg>${page||brandCard?`<div class="safe-captions" style="${captionStyle}">${animatedCaption}</div>`:''}</div>`;
 }
 

@@ -36,6 +36,25 @@ test('studio preserves drafts and ignores responses after navigation', async () 
     target.querySelector('#discard-draft').click();
     assert.equal(target.querySelector('#edit-reel-form'), null);
     assert.equal(target.querySelector('#render-reel').disabled, false);
+    assert.equal(target.querySelector('#save-motion').disabled, true);
+    const size = target.querySelector('[data-motion-group="caption"][data-motion-key="size"]');
+    size.value = '55';
+    size.dispatchEvent(new window.Event('input', {bubbles: true}));
+    assert.equal(target.querySelector('#render-reel').disabled, true);
+    assert.equal(target.querySelector('#save-motion').disabled, false);
+    assert.equal(JSON.parse(window.sessionStorage.getItem('reel-draft:example')).scenes[0].motion.caption.size, 55);
+    assert.equal(JSON.parse(window.sessionStorage.getItem('reel-draft:example')).scenes[0].motion.caption.font, 'delta240mvt');
+    target.querySelector('[data-add-window="finder"]').click();
+    assert.equal(JSON.parse(window.sessionStorage.getItem('reel-draft:example')).scenes[0].motion.windows.length, 1);
+    target.querySelector('[data-add-window="glass"]').click();
+    const shadow = target.querySelector('[data-motion-group="window"][data-motion-key="shadowIntensity"]');
+    assert.ok(shadow);
+    shadow.value = '0.8';
+    shadow.dispatchEvent(new window.Event('input', {bubbles: true}));
+    assert.equal(JSON.parse(window.sessionStorage.getItem('reel-draft:example')).scenes[0].motion.windows[1].shadowIntensity, 0.8);
+    assert.ok(target.querySelector('[data-motion-group="window"][data-motion-key="edgeFeather"]'));
+    target.querySelector('#discard-motion').click();
+    assert.equal(target.querySelector('#render-reel').disabled, false);
 
     let resolveRequest;
     globalThis.fetch = () => new Promise(resolve => {resolveRequest = resolve;});

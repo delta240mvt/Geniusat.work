@@ -1,3 +1,5 @@
+import {createWindow, defaultMotion, motionInspector, motionTimeline} from './reels-motion.js';
+
 const escapeHtml = (value) =>
   String(value ?? '').replace(
     /[&<>"']/g,
@@ -14,6 +16,8 @@ const timestamp = (seconds) =>
   `${Math.floor((seconds + .001) / 60)}:${String(Math.floor((seconds + .001) % 60)).padStart(2, '0')}`;
 const drafts = new Map();
 const playback = new Map();
+const selectedScene = new Map();
+const selectedWindow = new Map();
 let catalog = {reels: [], jobs: [], warnings: []};
 let selected = null;
 let container = null;
@@ -21,6 +25,7 @@ let generation = 0;
 let pollTimer;
 let editing = false;
 let submitting = false;
+let applyWindowEdit = null;
 
 async function api(url, body) {
   const response = await fetch(
@@ -72,9 +77,16 @@ function writeDraft(id, draft) {
   }
 }
 
+function ensureDraft(reel) {
+  const current = readDraft(reel.id);
+  if (current) return structuredClone(current);
+  return {title: reel.title, style: reel.style, scenes: structuredClone(reel.scenes)};
+}
+
 export function unmountReelStudio() {
   generation += 1;
   clearTimeout(pollTimer);
+  applyWindowEdit = null;
   container = null;
 }
 
@@ -202,14 +214,18 @@ async function submit(url, body) {
 
 function draw() {
   if (!container?.isConnected) return;
+  applyWindowEdit = null;
   const reel = catalog.reels.find((item) => item.id === selected);
   const busy = catalog.jobs.some((job) => job.status === 'running');
-  const draft = editing && readDraft(selected);
+  const draft = readDraft(selected);
   const editable = draft || reel;
   const time = playback.get(selected) || 0;
+  const sceneIndex = Math.max(0, Math.min(editable?.scenes.length - 1 || 0,
+    selectedScene.get(selected) ?? editable?.scenes.findIndex(scene => time >= scene.start && time < scene.end) ?? 0));
+  const windowIndex = selectedWindow.get(selected) ?? 0;
   container.innerHTML = `
     <section class="reel-heading">
-      <div><h1>Studio rolek</h1><p>Wybierz nagranie, dopracuj sceny i pobierz film.</p></div>
+      <div><h1>Studio rolek</h1><p>Cały montaż na żywo. Tekst, okna Mac i Liquid Glass dostroisz przed eksportem.</p></div>
       <button class="btn accent" id="new-reel" ${busy ? 'disabled' : ''}>Nowa rolka <span aria-hidden="true">＋</span></button>
     </section>
     <div id="reel-notice" class="reel-notice" role="status" hidden></div>
@@ -243,6 +259,7 @@ function draw() {
             <input id="reel-seek" aria-label="Pozycja odtwarzania" type="range" min="0" max="${reel.duration}" step="0.0333" value="${time}" ${!reel.previewUrl ? 'disabled' : ''}>
             <span id="reel-time">${timestamp(time)} / ${timestamp(reel.duration)}</span>
           </div>
+          ${motionTimeline({...reel, scenes: editable.scenes}, time)}
           <details class="reel-source"><summary>Nagranie źródłowe</summary><p>${escapeHtml(reel.sourceNote)}</p><p>${escapeHtml(reel.sourceFile)}</p></details>
         </section>
         <aside class="reel-settings">
@@ -257,13 +274,14 @@ function draw() {
           <div class="reel-scenes">${(editing ? editable.scenes : reel.scenes)
             .map(
               (scene, index) => `
-            <${editing ? 'div' : 'button'} ${editing ? '' : `type="button" data-seek="${scene.start}" data-scene-end="${scene.end}"`} class="reel-scene">
+            <${editing ? 'div' : 'button'} ${editing ? '' : `type="button" data-seek="${scene.start}" data-scene-end="${scene.end}" data-scene-index="${index}"`} class="reel-scene ${sceneIndex === index ? 'inspected' : ''}">
               <span class="reel-scene-time">${timestamp(scene.start)}</span>
-              <div>${editing ? `<label for="scene-${index}">Scena ${index + 1}</label><textarea id="scene-${index}" name="scene-${index}" maxlength="90" required>${escapeHtml(scene.title)}</textarea><label class="sr-only" for="detail-${index}">Opis sceny ${index + 1}</label><input id="detail-${index}" name="detail-${index}" maxlength="150" value="${escapeHtml(scene.detail)}">` : `<strong>${escapeHtml(scene.title).replaceAll('\n', ' ')}</strong>`}</div>
+              <div>${editing ? `<button type="button" class="reel-scene-select" data-scene-index="${index}">Scena ${index + 1} · inspektor</button><label class="sr-only" for="scene-${index}">Tytuł sceny ${index + 1}</label><textarea id="scene-${index}" name="scene-${index}" maxlength="90" required>${escapeHtml(scene.title)}</textarea><label class="sr-only" for="detail-${index}">Opis sceny ${index + 1}</label><input id="detail-${index}" name="detail-${index}" maxlength="150" value="${escapeHtml(scene.detail)}">` : `<strong>${escapeHtml(scene.title).replaceAll('\n', ' ')}</strong>`}</div>
             </${editing ? 'div' : 'button'}>`,
             )
             .join('')}</div>
           ${editing ? '<div class="reel-edit-actions"><button class="btn accent" type="submit">Zapisz zmiany</button><button class="reel-text-button" id="discard-draft" type="button">Odrzuć zmiany</button></div></form>' : ''}
+          <div id="motion-inspector-slot">${motionInspector(editable.scenes[sceneIndex], sceneIndex, windowIndex, Boolean(reel.motionConcept), escapeHtml, Boolean(draft))}</div>
           <div class="reel-export">
             <div class="reel-panel-label">GOTOWY FILM</div>
             <div class="reel-downloads">${reel.outputs.map((output) => `<a class="${output.stale ? 'stale' : 'reel-download-ready'}" href="${escapeHtml(output.url)}" download="${reel.id}-${output.engine}.mp4">↓ Pobierz MP4<span>${(output.bytes / 1024 / 1024).toFixed(1)} MB · ${escapeHtml(output.engine)}${output.stale ? ' · starsza wersja' : ''}</span></a>`).join('')}</div>
@@ -291,15 +309,160 @@ function draw() {
     document.dispatchEvent(new CustomEvent('genius:navigate-publisher', {detail: {title: reel.title, path: decodeURIComponent(output.url.slice('/api/workspace/'.length))}}));
   });
   const frame = container.querySelector('#reel-preview');
-  const send = (action, position) =>
+  const send = (action, position, nextDraft) =>
     frame?.contentWindow?.postMessage(
-      {type: 'delta-preview', action, time: position},
+      {type: 'delta-preview', action, time: position, draft: nextDraft},
       location.origin,
     );
-  if (frame) frame.onload = () => send('seek', time);
-  container.querySelectorAll('[data-seek]').forEach((button) => {
-    button.onclick = () => send('seek', Number(button.dataset.seek) + 0.4);
+  if (frame) frame.onload = () => {
+    const currentDraft = readDraft(reel.id);
+    if (currentDraft) send('update', undefined, currentDraft);
+    send('seek', time);
+  };
+  const selectScene = (index) => {
+    selectedScene.set(reel.id, index);
+    selectedWindow.set(reel.id, 0);
+    const current = readDraft(reel.id) || reel;
+    const scene = current.scenes[index];
+    container.querySelector('#motion-inspector-slot').innerHTML = motionInspector(scene, index, 0, Boolean(reel.motionConcept), escapeHtml, Boolean(readDraft(reel.id)));
+    bindMotionInspector();
+    container.querySelectorAll('.reel-scene').forEach((item, itemIndex) => item.classList.toggle('inspected', itemIndex === index));
+    send('seek', Math.min(scene.end - 1 / 30, scene.start + 0.4));
+  };
+  container.querySelectorAll('[data-scene-index]').forEach(button => {
+    button.onclick = () => selectScene(Number(button.dataset.sceneIndex));
   });
+  function bindTimeline() {
+    container.querySelectorAll('[data-timeline-scene]').forEach(button => {
+      button.onclick = () => selectScene(Number(button.dataset.timelineScene));
+    });
+    const tracks = container.querySelector('.motion-timeline-tracks');
+    if (tracks) tracks.onclick = event => {
+      if (event.target.closest('[data-timeline-scene]')) return;
+      const rect = tracks.getBoundingClientRect();
+      send('seek', Math.max(0, Math.min(reel.duration - 1 / 30, (event.clientX - rect.left) / rect.width * reel.duration)));
+    };
+  }
+  bindTimeline();
+  function markDirty(nextDraft) {
+    writeDraft(reel.id, nextDraft);
+    send('update', undefined, nextDraft);
+    const render = container.querySelector('#render-reel');
+    if (render) render.disabled = true;
+    const save = container.querySelector('#save-motion');
+    if (save) { save.disabled = false; save.textContent = 'Zapisz animacje •'; }
+    const discard = container.querySelector('#discard-motion');
+    if (discard) discard.hidden = false;
+    const status = container.querySelector('.motion-save-row span');
+    if (status) status.textContent = 'Niezapisane zmiany w lokalnym podglądzie';
+  }
+  function changeMotion(change, redraw = false) {
+    const nextDraft = ensureDraft(reel);
+    const index = selectedScene.get(reel.id) ?? sceneIndex;
+    const scene = nextDraft.scenes[index];
+    scene.motion ||= defaultMotion(Boolean(reel.motionConcept), scene.title);
+    change(scene.motion, scene);
+    markDirty(nextDraft);
+    if (redraw) {
+      const windowIndex = selectedWindow.get(reel.id) ?? 0;
+      container.querySelector('#motion-inspector-slot').innerHTML = motionInspector(scene, index, windowIndex, Boolean(reel.motionConcept), escapeHtml, true);
+      bindMotionInspector();
+      const timeline = container.querySelector('.motion-timeline');
+      if (timeline) timeline.outerHTML = motionTimeline({...reel, scenes: nextDraft.scenes}, playback.get(reel.id) || 0);
+      bindTimeline();
+    }
+  }
+  function bindMotionInspector() {
+    const slot = container.querySelector('#motion-inspector-slot');
+    slot.querySelectorAll('[data-scene-option]').forEach(input => {
+      input.onchange = () => changeMotion((_motion, scene) => { scene[input.dataset.sceneOption] = input.checked; });
+    });
+    slot.querySelectorAll('[data-motion-group]').forEach(input => {
+      input.oninput = () => {
+        const {motionGroup: group, motionKey: key} = input.dataset;
+        changeMotion(motion => {
+          const target = group === 'window' ? motion.windows[selectedWindow.get(reel.id) ?? 0] : motion[group];
+          if (!target) return;
+          target[key] = input.type === 'range' ? Number(input.value) : input.value;
+        });
+        const output = input.closest('label')?.querySelector('output');
+        if (output) output.textContent = `${input.value}${output.textContent.replace(/^[\d.-]+/, '')}`;
+      };
+    });
+    slot.querySelectorAll('[data-window-key]').forEach(input => {
+      input.oninput = () => {
+        const key = input.dataset.windowKey;
+        if (input.type === 'number' && (!input.validity.valid || input.value === '')) return;
+        changeMotion((motion, scene) => {
+          const window = motion.windows[selectedWindow.get(reel.id) ?? 0];
+          if (!window) return;
+          window[key] = input.type === 'number' ? Number(input.value) : input.value;
+          const duration = Math.round((scene.end - scene.start) * 1000);
+          window.startMs = Math.min(window.startMs, duration - 1);
+          window.endMs = Math.max(window.startMs + 1, Math.min(window.endMs, duration));
+          window.x = Math.min(window.x, 1080 - window.width);
+          window.y = Math.min(window.y, 1920 - window.height);
+        }, key === 'kind');
+        if (input.type === 'number') {
+          const index = selectedScene.get(reel.id) ?? sceneIndex;
+          input.value = (readDraft(reel.id).scenes[index].motion.windows[selectedWindow.get(reel.id) ?? 0][key]).toString();
+        }
+      };
+    });
+    slot.querySelectorAll('[data-select-window]').forEach(button => {
+      button.onclick = () => {
+        selectedWindow.set(reel.id, Number(button.dataset.selectWindow));
+        const index = selectedScene.get(reel.id) ?? sceneIndex;
+        const scene = (readDraft(reel.id) || reel).scenes[index];
+        slot.innerHTML = motionInspector(scene, index, Number(button.dataset.selectWindow), Boolean(reel.motionConcept), escapeHtml, Boolean(readDraft(reel.id)));
+        bindMotionInspector();
+      };
+    });
+    slot.querySelectorAll('[data-add-window]').forEach(addButton => addButton.addEventListener('click', () => {
+      const index = selectedScene.get(reel.id) ?? sceneIndex;
+      changeMotion((motion, scene) => {
+        motion.windows.push(createWindow(scene, motion.windows.length + 1, playback.get(reel.id) ?? scene.start, addButton.dataset.addWindow));
+        selectedWindow.set(reel.id, motion.windows.length - 1);
+      }, true);
+      const scene = (readDraft(reel.id) || reel).scenes[index];
+      const window = scene.motion.windows.at(-1);
+      send('seek', scene.start + window.startMs / 1000 + Math.min(0.5, (window.endMs - window.startMs) / 2000));
+    }));
+    slot.querySelector('#remove-mac-window')?.addEventListener('click', () => {
+      changeMotion(motion => {
+        motion.windows.splice(selectedWindow.get(reel.id) ?? 0, 1);
+        selectedWindow.set(reel.id, Math.max(0, motion.windows.length - 1));
+      }, true);
+    });
+    slot.querySelector('#save-motion')?.addEventListener('click', () => {
+      submit(`/api/reels/${reel.id}/save`, ensureDraft(reel));
+    });
+    slot.querySelector('#discard-motion')?.addEventListener('click', () => {
+      writeDraft(reel.id, null);
+      editing = false;
+      draw();
+    });
+  }
+  bindMotionInspector();
+  applyWindowEdit = ({id, x, y, width, height}) => {
+    if (typeof id !== 'string' || ![x, y, width, height].every(Number.isFinite)) return;
+    const nextDraft = ensureDraft(reel);
+    const index = nextDraft.scenes.findIndex(scene => scene.motion?.windows.some(window => window.id === id));
+    if (index < 0) return;
+    const windows = nextDraft.scenes[index].motion.windows;
+    const windowIndex = windows.findIndex(window => window.id === id);
+    const window = windows[windowIndex];
+    window.width = Math.max(180, Math.min(1080, Math.round(width)));
+    window.height = Math.max(120, Math.min(1400, Math.round(height)));
+    window.x = Math.max(0, Math.min(1080 - window.width, Math.round(x)));
+    window.y = Math.max(0, Math.min(1920 - window.height, Math.round(y)));
+    selectedScene.set(reel.id, index);
+    selectedWindow.set(reel.id, windowIndex);
+    markDirty(nextDraft);
+    container.querySelector('#motion-inspector-slot').innerHTML = motionInspector(nextDraft.scenes[index], index, windowIndex, Boolean(reel.motionConcept), escapeHtml, true);
+    bindMotionInspector();
+    container.querySelectorAll('.reel-scene').forEach((item, itemIndex) => item.classList.toggle('inspected', itemIndex === index));
+  };
   container.querySelector('#play-reel').onclick = () => send('toggle');
   container.querySelector('#reel-seek').oninput = (event) =>
     send('seek', Number(event.target.value));
@@ -318,16 +481,15 @@ function draw() {
   if (form) {
     const capture = () => {
       const data = new FormData(form);
-      const draft = {
-        title: data.get('title'),
-        style: data.get('style'),
-        scenes: reel.scenes.map((scene, index) => ({
+      const draft = ensureDraft(reel);
+      draft.title = data.get('title');
+      draft.style = data.get('style');
+      draft.scenes = draft.scenes.map((scene, index) => ({
           ...scene,
           title: data.get(`scene-${index}`),
           detail: data.get(`detail-${index}`),
-        })),
-      };
-      writeDraft(reel.id, draft);
+        }));
+      markDirty(draft);
       return draft;
     };
     form.oninput = capture;
@@ -415,6 +577,7 @@ window.addEventListener('message', (event) => {
   )
     return;
   if (event.data?.type === 'delta-preview-error') { notice(event.data.message, true); return; }
+  if (event.data?.type === 'delta-preview-window-edit') { applyWindowEdit?.(event.data); return; }
   if (event.data?.type !== 'delta-preview-state') return;
   const reel = catalog.reels.find((item) => item.id === selected);
   if (!reel || !Number.isFinite(event.data.time)) return;
@@ -422,6 +585,8 @@ window.addEventListener('message', (event) => {
   container.querySelector('#reel-seek').value = event.data.time;
   container.querySelector('#reel-time').textContent =
     `${timestamp(event.data.time)} / ${timestamp(reel.duration)}`;
+  const timeline = container.querySelector('.motion-timeline');
+  if (timeline) timeline.style.setProperty('--playhead', `${Math.max(0, Math.min(100, event.data.time / reel.duration * 100))}%`);
   const play = container.querySelector('#play-reel');
   play.textContent = event.data.paused ? '▶' : 'Ⅱ';
   play.setAttribute(
